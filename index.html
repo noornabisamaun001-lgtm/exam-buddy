@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.2/math.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
 :root{
   --ink:#1B2430; --ink-soft:#3A4453;
@@ -255,6 +257,7 @@ main{max-width:960px; margin:0 auto; padding:28px 20px 80px;}
     <div class="topbar-right">
       <button class="back-btn" id="topbar-back" style="display:none;">← ড্যাশবোর্ড</button>
       <span id="topbar-name"></span>
+      <button class="back-btn" id="signout-btn">সাইন আউট</button>
     </div>
   </div>
   <main id="view" class="view-enter"></main>
@@ -266,14 +269,15 @@ main{max-width:960px; margin:0 auto; padding:28px 20px 80px;}
 <script>
 /* ============================= STORAGE LAYER ============================= */
 const mem = {};
+const LS_PREFIX = 'digniroy:';
 async function sGet(key){
   try{
-    const r = await window.storage.get(key, false);
-    return r ? JSON.parse(r.value) : null;
+    const raw = localStorage.getItem(LS_PREFIX+key);
+    return raw ? JSON.parse(raw) : null;
   }catch(e){ return mem[key] !== undefined ? mem[key] : null; }
 }
 async function sSet(key, val){
-  try{ await window.storage.set(key, JSON.stringify(val), false); }
+  try{ localStorage.setItem(LS_PREFIX+key, JSON.stringify(val)); }
   catch(e){ mem[key] = val; }
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
@@ -295,7 +299,7 @@ async function saveChapters(){ await sSet('chapters', DB.chapters); }
 async function saveTemplates(){ await sSet('templates', DB.templates); }
 async function saveHistory(){ await sSet('history', DB.history); }
 async function saveExam(){ await sSet('exam:current', currentExam); }
-async function clearExam(){ currentExam = null; try{ await window.storage.delete('exam:current', false); }catch(e){ delete mem['exam:current']; } }
+async function clearExam(){ currentExam = null; try{ localStorage.removeItem(LS_PREFIX+'exam:current'); }catch(e){ delete mem['exam:current']; } }
 
 /* ============================= UTIL ============================= */
 function toast(msg){
@@ -344,7 +348,7 @@ function closeModal(){ document.getElementById('modal-overlay').classList.remove
 document.getElementById('modal-overlay').addEventListener('click', e=>{ if(e.target.id==='modal-overlay') closeModal(); });
 
 /* ============================= ROUTER ============================= */
-async function nav(hash){ location.hash = hash; }
+async function nav(hash){ location.hash = '/'+hash; }
 window.addEventListener('hashchange', render);
 
 async function render(){
@@ -365,13 +369,38 @@ async function render(){
 }
 document.getElementById('topbar-back').addEventListener('click', ()=>nav('dashboard'));
 
-/* ============================= LOGIN ============================= */
+/* ============================= FIREBASE AUTH ============================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDWAUOKFsTE-HDLcufznd5741D1DTlS5YM",
+  authDomain: "exambuddy-f9558.firebaseapp.com",
+  projectId: "exambuddy-f9558",
+  storageBucket: "exambuddy-f9558.firebasestorage.app",
+  messagingSenderId: "426615316054",
+  appId: "1:426615316054:web:31b5d8a618c73f3133a5f7",
+  measurementId: "G-BB4D7ZWJJM"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
 document.getElementById('google-btn').addEventListener('click', async ()=>{
-  const name = prompt('আপনার নাম লিখুন (ডেমো সাইন-ইন):', 'শিক্ষার্থী');
-  if(!name) return;
-  DB.profile = { name, signedInAt: Date.now() };
-  await sSet('profile', DB.profile);
-  enterApp();
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try{
+    const result = await auth.signInWithPopup(provider);
+    const u = result.user;
+    DB.profile = { name: u.displayName || 'শিক্ষার্থী', email: u.email, uid: u.uid, signedInAt: Date.now() };
+    await sSet('profile', DB.profile);
+    enterApp();
+  }catch(e){
+    console.error(e);
+    toast('সাইন-ইন ব্যর্থ হয়েছে — ' + (e.code==='auth/unauthorized-domain' ? 'এই ডোমেইন Firebase-এ অনুমোদিত নয়' : 'আবার চেষ্টা করুন'));
+  }
+});
+document.getElementById('signout-btn').addEventListener('click', async ()=>{
+  try{ await auth.signOut(); }catch(e){}
+  DB.profile = null;
+  await sSet('profile', null);
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('login-screen').style.display = 'flex';
 });
 function enterApp(){
   document.getElementById('login-screen').style.display = 'none';
@@ -383,7 +412,7 @@ function enterApp(){
 /* ============================= DASHBOARD ============================= */
 function viewDashboard(){
   return `
-  <h2 class="section-title">নমস্কার, ${DB.profile.name} 👋</h2>
+  <h2 class="section-title">হ্যালো, ${DB.profile.name} 👋</h2>
   <p class="section-sub">আজ কী নিয়ে কাজ করবেন?</p>
   <div class="tiles">
     <button class="tile" onclick="nav('examsetup')">
