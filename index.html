@@ -339,6 +339,28 @@ function fmtSecs(s){
   return String(m).padStart(2,'0')+':'+String(r).padStart(2,'0');
 }
 
+/* ============================= AI HELPER ============================= */
+// Calls Claude directly (no API key needed — handled by the runtime) and
+// returns the parsed JSON object/array the model responded with.
+async function callClaudeAI(userContent, systemPrompt){
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [ { role: "user", content: userContent } ]
+    })
+  });
+  if(!response.ok) throw new Error('AI request failed: '+response.status);
+  const data = await response.json();
+  const textBlock = (data.content || []).find(b=>b.type==='text');
+  if(!textBlock) throw new Error('AI returned no text');
+  let clean = textBlock.text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  return JSON.parse(clean);
+}
+
 /* ============================= MODAL ============================= */
 function openModal(html){
   document.getElementById('modal-body').innerHTML = html;
@@ -540,16 +562,16 @@ function openTemplateForm(chapterId, templateId){
   if(!t){
     // ---- Quick Add mode (new template): text/photo/voice -> auto-save, stay open for the next one ----
     openModal(`
-      <h3>নতুন প্রশ্ন যোগ করো</h3>
+      <h3>প্রশ্ন যোগ করো — AI বক্স</h3>
       <div class="field">
-        <label>প্রশ্ন লিখো, বলো, অথবা ছবি দাও</label>
-        <textarea id="ai-raw-text" placeholder="প্রশ্নটা যেভাবে বইয়ে আছে ঠিক সেভাবে বসাও — অপশনসহ, আর কোনটা সঠিক সেটাও বলে দাও"></textarea>
+        <label>একসাথে যতগুলো ইচ্ছা প্রশ্ন লিখো, বলো, অথবা ছবি দাও</label>
+        <textarea id="ai-raw-text" style="min-height:130px;" placeholder="একটা বা একাধিক প্রশ্ন যেভাবে বইয়ে আছে ঠিক সেভাবে পেস্ট করো বা লিখো — অপশনসহ। একাধিক হলে আলাদা করার দরকার নেই, AI নিজেই আলাদা আলাদা প্রশ্ন হিসেবে চিনে নেবে এবং প্রতিটাকে আলাদা ডেটা হিসেবে এই অধ্যায়ে সংরক্ষণ করবে।"></textarea>
         <button type="button" class="btn" id="mic-btn" onclick="toggleVoiceInput()" style="margin:8px 0;">🎤 বলে টাইপ করো</button>
-        <div class="hint" style="margin-bottom:8px;">অথবা ছবি দাও:</div>
+        <div class="hint" style="margin-bottom:8px;">অথবা একটা পৃষ্ঠার ছবি দাও (একাধিক প্রশ্ন থাকলেও চলবে):</div>
         <input type="file" id="ai-image-input" accept="image/*" capture="environment" style="margin-bottom:10px;">
       </div>
-      <button type="button" class="btn btn-gold btn-block" id="ai-parse-btn" onclick="quickAddViaAI('${chapterId}')">⚡ যোগ করো</button>
-      <div class="hint" style="text-align:center; margin-top:8px;">এই সেশনে যোগ হয়েছে: <b id="quick-add-count">0</b> টা</div>
+      <button type="button" class="btn btn-gold btn-block" id="ai-parse-btn" onclick="quickAddViaAI('${chapterId}')">⚡ AI দিয়ে যোগ করো</button>
+      <div class="hint" style="text-align:center; margin-top:8px;">এই সেশনে যোগ হয়েছে: <b id="quick-add-count">0</b> টা প্রশ্ন</div>
       <details style="margin-top:16px;">
         <summary class="link-btn" style="cursor:pointer;">নিজে হাতে লিখতে চাইলে এখানে ক্লিক করো</summary>
         <div style="margin-top:12px;">
@@ -654,40 +676,57 @@ function toggleVoiceInput(){
   recognition.start();
 }
 let quickAddCount = 0;
+const QUICK_ADD_SYSTEM_PROMPT = `তুমি একটা প্রশ্ন-পার্সিং ইঞ্জিন। ব্যবহারকারী একটা টেক্সট বা ছবি দেবে যেখানে একটা বা একাধিক MCQ (বহুনির্বাচনী) প্রশ্ন থাকতে পারে। তোমার কাজ:
+1. প্রতিটা আলাদা প্রশ্ন খুঁজে বের করো এবং প্রতিটাকে আলাদা একটা অবজেক্ট বানাও।
+2. প্রতিটা অবজেক্টে থাকবে: "stem" (প্রশ্নের মূল বিবৃতি, গাণিতিক রাশি থাকলে $...$ এর মধ্যে LaTeX আকারে লিখবে, যেমন $x^2+2x$), "options" (৪টা অপশনের স্ট্রিং অ্যারে, একইভাবে গণিত হলে $...$ ব্যবহার করবে), "correctIndex" (কোন অপশনটা সঠিক তার 0-based index), "explanation" (এক-দুই লাইনে সংক্ষিপ্ত ব্যাখ্যা, না থাকলে খালি স্ট্রিং)।
+3. প্রশ্নে যদি স্পষ্ট সঠিক উত্তর দেওয়া না থাকে, নিজের জ্ঞান দিয়ে সঠিক উত্তর নির্ণয় করো (এটা universal/fixed সত্য ধরনের প্রশ্ন হলে সহজ, যেমন গণিত/পদার্থবিজ্ঞান হিসাব, সাধারণ জ্ঞান তথ্য)।
+4. শুধুমাত্র একটা বৈধ JSON array রিটার্ন করবে, অন্য কোনো টেক্সট, ব্যাখ্যা, বা মার্কডাউন কোড ফেন্স ছাড়া। যদি কিছুই প্রশ্ন হিসেবে চিহ্নিত করা না যায়, খালি array [] রিটার্ন করো।
+উদাহরণ আউটপুট আকৃতি:
+[{"stem":"...", "options":["...","...","...","..."], "correctIndex":2, "explanation":"..."}]`;
+
 async function quickAddViaAI(chapterId){
   const rawText = document.getElementById('ai-raw-text').value.trim();
   const fileInput = document.getElementById('ai-image-input');
   const file = fileInput.files[0];
   if(!rawText && !file){ toast('প্রশ্ন লিখো, বলো, অথবা ছবি দাও'); return; }
   const btn = document.getElementById('ai-parse-btn');
-  btn.disabled = true; btn.textContent = 'যোগ হচ্ছে...';
+  btn.disabled = true; btn.textContent = 'AI পড়ছে ও আলাদা করছে...';
   try{
-    const payload = { text: rawText || undefined };
-    if(file){ payload.imageBase64 = await fileToBase64(file); payload.imageMime = file.type; }
-    const r = await fetch('/api/parse-question', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-    const data = await r.json();
-    if(!r.ok || data.error){ toast('সমস্যা হয়েছে: ' + (data.error || 'অজানা') + ' — আবার চেষ্টা করো'); return; }
-    if(!data.stem || !Array.isArray(data.optionExprs) || data.optionExprs.length<2){ toast('AI বুঝতে পারেনি, আরেকটু স্পষ্ট করে দাও'); return; }
-    DB.templates.push({
-      id: uid(), chapterId,
-      stem: data.stem,
-      variables: (data.variables && data.variables.length) ? data.variables : [],
-      optionExprs: data.optionExprs,
-      correctIndex: Number.isInteger(data.correctIndex) ? data.correctIndex : 0,
-      explanation: data.explanation || ''
+    const contentParts = [];
+    if(file){
+      const base64 = await fileToBase64(file);
+      contentParts.push({ type:'image', source:{ type:'base64', media_type: file.type || 'image/jpeg', data: base64 } });
+    }
+    contentParts.push({ type:'text', text: rawText || 'ছবিতে যে প্রশ্ন(গুলো) আছে সেগুলো বের করো।' });
+
+    const parsed = await callClaudeAI(contentParts, QUICK_ADD_SYSTEM_PROMPT);
+    const items = Array.isArray(parsed) ? parsed : (parsed && parsed.stem ? [parsed] : []);
+    const valid = items.filter(it=> it && it.stem && Array.isArray(it.options) && it.options.length>=2);
+    if(valid.length===0){ toast('AI কোনো প্রশ্ন খুঁজে পায়নি, আরেকটু স্পষ্ট করে দাও'); return; }
+
+    valid.forEach(it=>{
+      DB.templates.push({
+        id: uid(), chapterId,
+        stem: it.stem,
+        variables: [], // AI-parsed literal question — variation is generated live by AI at exam time
+        optionExprs: it.options,
+        correctIndex: Number.isInteger(it.correctIndex) ? it.correctIndex : 0,
+        explanation: it.explanation || ''
+      });
     });
     await saveTemplates();
-    quickAddCount++;
+    quickAddCount += valid.length;
     const counterEl = document.getElementById('quick-add-count');
     if(counterEl) counterEl.textContent = quickAddCount;
     document.getElementById('ai-raw-text').value = '';
     fileInput.value = '';
-    toast('✅ যোগ হয়েছে (' + quickAddCount + ' টা এই সেশনে)');
+    toast(`✅ ${valid.length} টা প্রশ্ন যোগ হয়েছে (মোট ${quickAddCount} টা এই সেশনে)`);
     document.getElementById('ai-raw-text').focus();
   }catch(e){
-    toast('নেটওয়ার্ক সমস্যা, আবার চেষ্টা করো');
+    console.error(e);
+    toast('AI-তে সমস্যা হয়েছে, আবার চেষ্টা করো');
   }finally{
-    btn.disabled = false; btn.textContent = '⚡ যোগ করো';
+    btn.disabled = false; btn.textContent = '⚡ AI দিয়ে যোগ করো';
   }
 }
 function fileToBase64(file){
@@ -775,6 +814,54 @@ function generateVariation(template, usedSignatures){
   return null; // could not generate a valid variation
 }
 
+const VARIATION_SYSTEM_PROMPT = `তুমি একটা প্রশ্ন-ভ্যারিয়েশন ইঞ্জিন, যেটা একটা আর্কিটাইপ (archetype) MCQ প্রশ্ন থেকে একটা নতুন, তরতাজা ভার্সন বানায় যাতে ছাত্রের মস্তিষ্ক মুখস্থ না করে বরং প্রতিবার নতুন করে চিন্তা করে।
+নিয়ম:
+1. প্রশ্নের কাঠামো, ধরন, কঠিনতা ও কনসেপ্ট এক রাখো, কিন্তু সংখ্যা/রাশি/প্রেক্ষাপট (figure, নাম, প্রসঙ্গ ইত্যাদি) বদলে দাও যাতে মূল হুবহু প্রশ্ন না হয়ে যায়।
+2. যদি এটা গাণিতিক/হিসাবভিত্তিক প্রশ্ন হয়, নতুন সংখ্যা বসিয়ে সঠিক উত্তর নিজে হিসাব করে বের করো — হিসাব অবশ্যই সঠিক হতে হবে।
+3. যদি এটা "universal truth" ধরনের প্রশ্ন হয় (যেমন সংজ্ঞা, সূত্র, সাধারণ জ্ঞান) যেখানে সংখ্যা বদলানোর সুযোগ কম, তাহলে বাক্য গঠন সামান্য ঘুরিয়ে/অপশনের ক্রম পাল্টে একটু ভিন্নভাবে উপস্থাপন করো, কিন্তু সঠিক তথ্য/উত্তর একই রাখো।
+4. ৪টা অপশন দাও, একটাই সঠিক, বাকিগুলো প্রশংসনীয় ভুল উত্তর (plausible distractors) হতে হবে।
+5. গণিত/রাশি থাকলে $...$ এর মধ্যে LaTeX আকারে লিখবে।
+6. শুধু একটা বৈধ JSON object রিটার্ন করো, অন্য কোনো টেক্সট বা মার্কডাউন ছাড়া: {"stem":"...", "options":["...","...","...","..."], "correctIndex":0, "explanation":"..."}`;
+
+async function generateVariationAI(template){
+  const userMsg = `আর্কিটাইপ প্রশ্ন:\nStem: ${template.stem}\nOptions: ${JSON.stringify(template.optionExprs)}\nCorrect index: ${template.correctIndex}\nExplanation: ${template.explanation||''}\n${template.variables && template.variables.length ? 'ভেরিয়েবলের রেঞ্জ (ইঙ্গিত হিসেবে ব্যবহার করতে পারো): '+JSON.stringify(template.variables) : ''}\nএখন এর একটা নতুন ভ্যারিয়েশন বানাও।`;
+  try{
+    const data = await callClaudeAI(userMsg, VARIATION_SYSTEM_PROMPT);
+    if(!data || !data.stem || !Array.isArray(data.options) || data.options.length<2 || !Number.isInteger(data.correctIndex)) return null;
+    return {
+      templateId: template.id,
+      chapterId: template.chapterId,
+      stem: data.stem,
+      options: data.options.map(String),
+      correctIndex: data.correctIndex,
+      explanation: data.explanation || template.explanation || ''
+    };
+  }catch(e){
+    console.error('AI variation failed', e);
+    return null;
+  }
+}
+
+/* Generate one variation for a template — tries AI first for a fresher, non-repetitive
+   question; falls back to the local formula engine (only works if the template has
+   variables) if the AI call fails, so exam generation never gets stuck. */
+async function generateVariationSmart(template, usedSignatures){
+  const aiResult = await generateVariationAI(template);
+  if(aiResult) return aiResult;
+  if(template.variables && template.variables.length){
+    return generateVariation(template, usedSignatures);
+  }
+  // last resort: use the stored question as-is
+  return {
+    templateId: template.id,
+    chapterId: template.chapterId,
+    stem: template.stem,
+    options: template.optionExprs.map(String),
+    correctIndex: template.correctIndex,
+    explanation: template.explanation || ''
+  };
+}
+
 /* ============================= EXAM SETUP ============================= */
 const PRESETS = [ {n:15,t:10}, {n:30,t:25}, {n:60,t:60}, {n:100,t:60}, {n:200,t:90} ];
 let setupSelection = { preset: PRESETS[0], custom:false, customN:20, customT:20, chapterIds: new Set() };
@@ -859,31 +946,68 @@ async function beginExam(weakChapterIds){
     durationSec = (parseInt(document.getElementById('custom-t').value)||10)*60;
   } else { n = setupSelection.preset.n; durationSec = setupSelection.preset.t*60; }
 
-  // build randomized template order (repeat pool if needed), generate valid variations
-  const usedSig = new Set();
-  const questions = [];
+  // build randomized template order (repeat pool if needed)
   let shuffledPool = [...pool];
+  const templateOrder = [];
   let guard = 0;
-  while(questions.length < n && guard < n*8){
+  while(templateOrder.length < n && guard < n*3){
     guard++;
     if(shuffledPool.length===0) shuffledPool = [...pool];
     const idx = Math.floor(Math.random()*shuffledPool.length);
-    const tpl = shuffledPool.splice(idx,1)[0];
-    const q = generateVariation(tpl, usedSig);
-    if(q) questions.push(q);
+    templateOrder.push(shuffledPool.splice(idx,1)[0]);
   }
-  if(questions.length===0) return toast('বৈধ প্রশ্ন তৈরি করা যায়নি — প্রশ্ন প্যাটার্ন পরীক্ষা করুন');
+
+  // generate a fresh AI-driven variation for each — with a small concurrency limit
+  // so we don't fire off 100 requests at once, and a progress UI since this can take a moment.
+  showExamGenProgress(0, templateOrder.length);
+  const usedSig = new Set();
+  const questions = [];
+  const CONCURRENCY = 4;
+  let cursor = 0, done = 0;
+  async function worker(){
+    while(cursor < templateOrder.length){
+      const myIdx = cursor++;
+      const tpl = templateOrder[myIdx];
+      const q = await generateVariationSmart(tpl, usedSig);
+      if(q) questions[myIdx] = q;
+      done++;
+      showExamGenProgress(done, templateOrder.length);
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(CONCURRENCY, templateOrder.length)}, worker));
+  const finalQuestions = questions.filter(Boolean);
+  hideExamGenProgress();
+  if(finalQuestions.length===0) return toast('বৈধ প্রশ্ন তৈরি করা যায়নি — প্রশ্ন প্যাটার্ন পরীক্ষা করুন');
 
   currentExam = {
     id: uid(),
     startedAt: Date.now(),
     durationSec,
-    questions,
+    questions: finalQuestions,
     answers: {}, // qIndex -> optionIndex
     status: 'active'
   };
   await saveExam();
   nav('exam');
+}
+function showExamGenProgress(done, total){
+  let el = document.getElementById('examgen-overlay');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'examgen-overlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(27,36,48,.75);z-index:500;display:flex;align-items:center;justify-content:center;flex-direction:column;color:#fff;gap:14px;';
+    el.innerHTML = `<div class="serif" style="font-size:1.1rem;">AI প্রশ্ন তৈরি করছে...</div>
+      <div style="width:220px; height:6px; background:rgba(255,255,255,.2); border-radius:6px; overflow:hidden;"><div id="examgen-bar" style="height:100%; background:var(--brass); width:0%; transition:width .2s;"></div></div>
+      <div id="examgen-count" style="font-size:.82rem; color:var(--brass-dim);"></div>`;
+    document.body.appendChild(el);
+  }
+  const pct = total ? Math.round((done/total)*100) : 0;
+  const bar = document.getElementById('examgen-bar'); if(bar) bar.style.width = pct+'%';
+  const cnt = document.getElementById('examgen-count'); if(cnt) cnt.textContent = done+' / '+total+' প্রশ্ন তৈরি হয়েছে';
+}
+function hideExamGenProgress(){
+  const el = document.getElementById('examgen-overlay');
+  if(el) el.remove();
 }
 
 /* ============================= EXAM RUNNER ============================= */
@@ -892,37 +1016,39 @@ async function viewExam(){
   if(!currentExam){ nav('examsetup'); return ''; }
   return renderExamBody();
 }
-function renderExamBody(){
-  const total = currentExam.questions.length;
-  const answered = Object.keys(currentExam.answers).length;
-  const idx = currentExam._focusIdx || 0;
+function renderQuestionCard(idx){
   const q = currentExam.questions[idx];
-  const remaining = examRemainingSecs();
-  return `
-  <div class="watermark">${DB.profile.name}</div>
-  <div class="exam-top">
-    <div style="font-size:.85rem; color:var(--ink-soft);">উত্তর দেওয়া হয়েছে: ${answered}/${total}</div>
-    <div class="timer ${remaining<60?'low':''}" id="exam-timer">${fmtSecs(remaining)}</div>
-  </div>
-  <div class="progress-bar"><div class="progress-fill" style="width:${(answered/total*100)}%;"></div></div>
-  <div class="q-wrap">
-    <div class="q-num">প্রশ্ন ${idx+1} / ${total}</div>
+  const ansIdx = currentExam.answers[idx];
+  const locked = ansIdx !== undefined;
+  return `<div class="q-wrap" id="examq-${idx}" style="padding-top:22px; padding-bottom:22px; border-bottom:1px solid var(--line);">
+    <div class="q-num">প্রশ্ন ${idx+1} / ${currentExam.questions.length}</div>
     <div class="q-stem">${renderMath(q.stem)}</div>
     ${q.options.map((opt,i)=>{
-      const selected = currentExam.answers[idx]===i;
-      const locked = currentExam.answers[idx]!==undefined;
+      const selected = ansIdx===i;
       return `<div class="opt ${selected?'selected':''} ${locked?'locked':''}" onclick="${locked?'':'selectAnswer('+idx+','+i+')'}">
         <div class="radio-dot"><div class="fill"></div></div>
         <div class="opt-text">${renderMath(opt)}</div>
       </div>`;
     }).join('')}
+  </div>`;
+}
+function renderExamBody(){
+  const total = currentExam.questions.length;
+  const answered = Object.keys(currentExam.answers).length;
+  const remaining = examRemainingSecs();
+  return `
+  <div class="watermark">${DB.profile.name}</div>
+  <div class="exam-top">
+    <div style="font-size:.85rem; color:var(--ink-soft);">উত্তর দেওয়া হয়েছে: <span id="exam-answered-count">${answered}</span>/${total} · নিচে স্ক্রল করে সব প্রশ্ন দেখুন</div>
+    <div class="timer ${remaining<60?'low':''}" id="exam-timer">${fmtSecs(remaining)}</div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="exam-progress-fill" style="width:${(answered/total*100)}%;"></div></div>
+  <div id="exam-questions">
+    ${currentExam.questions.map((q,idx)=>renderQuestionCard(idx)).join('')}
   </div>
   <div class="exam-nav">
-    <button class="btn" onclick="examGo(${idx-1})" ${idx===0?'disabled style="opacity:.4"':''}>← আগের</button>
-    <div class="btn-row">
-      ${idx<total-1 ? `<button class="btn btn-primary" onclick="examGo(${idx+1})">পরবর্তী →</button>` : ''}
-      <button class="btn btn-gold" onclick="confirmSubmitExam()">জমা দিন</button>
-    </div>
+    <div style="font-size:.82rem; color:var(--ink-soft); align-self:center;">সবগুলো প্রশ্ন এক পৃষ্ঠায় — স্ক্রল করে উত্তর দাও</div>
+    <button class="btn btn-gold" onclick="confirmSubmitExam()">জমা দিন</button>
   </div>`;
 }
 function examRemainingSecs(){
@@ -933,12 +1059,13 @@ async function selectAnswer(qIdx, optIdx){
   if(currentExam.answers[qIdx]!==undefined) return;
   currentExam.answers[qIdx] = optIdx;
   await saveExam();
-  document.getElementById('view').innerHTML = renderExamBody();
-}
-function examGo(idx){
-  if(idx<0 || idx>=currentExam.questions.length) return;
-  currentExam._focusIdx = idx;
-  document.getElementById('view').innerHTML = renderExamBody();
+  // update just this question's card, so the page doesn't jump/re-scroll
+  const card = document.getElementById('examq-'+qIdx);
+  if(card) card.outerHTML = renderQuestionCard(qIdx);
+  const total = currentExam.questions.length;
+  const answered = Object.keys(currentExam.answers).length;
+  const countEl = document.getElementById('exam-answered-count'); if(countEl) countEl.textContent = answered;
+  const fillEl = document.getElementById('exam-progress-fill'); if(fillEl) fillEl.style.width = (answered/total*100)+'%';
 }
 function startExamTimerLoop(){
   clearInterval(examTick);
