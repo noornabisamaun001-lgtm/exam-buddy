@@ -453,18 +453,14 @@ function enterApp(){
 document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
 async function openSettingsModal(){
   const key = (await sGet('geminiApiKey')) || '';
-  const model = (await sGet('geminiModel')) || 'gemini-2.0-flash';
+  const model = (await sGet('geminiModel')) || 'gemini-2.5-flash';
   openModal(`
     <h3>Gemini API সেটিংস</h3>
     <p class="hint" style="margin-bottom:14px;">প্রশ্ন থেকে AI দিয়ে নতুন নতুন ভ্যারিয়েশন তৈরি করতে তোমার নিজের Gemini API Key দরকার। এটি শুধু তোমার ব্রাউজারে সংরক্ষিত থাকে, কোনো সার্ভারে পাঠানো হয় না। Key নিতে <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> ভিজিট করো।</p>
     <div class="field"><label>API Key</label><input id="set-api-key" type="password" value="${esc(key)}" placeholder="AIza..."></div>
     <div class="field"><label>মডেল</label>
-      <select id="set-model">
-        <option value="gemini-2.0-flash" ${model==='gemini-2.0-flash'?'selected':''}>gemini-2.0-flash</option>
-        <option value="gemini-1.5-flash" ${model==='gemini-1.5-flash'?'selected':''}>gemini-1.5-flash</option>
-        <option value="gemini-1.5-pro" ${model==='gemini-1.5-pro'?'selected':''}>gemini-1.5-pro</option>
-      </select>
-      <div class="hint">নতুন মডেল থাকলে এখানে নাম বসাতে পারো।</div>
+      <input id="set-model" type="text" value="${esc(model)}" placeholder="gemini-2.5-flash">
+      <div class="hint">Google নিয়মিত পুরনো মডেল বন্ধ করে দেয়, তাই এটা ড্রপডাউন না রেখে সরাসরি টাইপ করার অপশন রাখা হয়েছে। এরর পেলে <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank" rel="noopener">এখানে</a> গিয়ে বর্তমানে চালু থাকা মডেলের নাম দেখে বসাও (যেমন gemini-2.5-flash, gemini-3-flash)।</div>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="saveSettings()">সংরক্ষণ করুন</button>
@@ -474,7 +470,7 @@ async function openSettingsModal(){
 }
 async function saveSettings(){
   const key = document.getElementById('set-api-key').value.trim();
-  const model = document.getElementById('set-model').value;
+  const model = document.getElementById('set-model').value.trim() || 'gemini-2.5-flash';
   await sSet('geminiApiKey', key);
   await sSet('geminiModel', model);
   closeModal();
@@ -485,7 +481,7 @@ async function saveSettings(){
 async function callGeminiAPI({text, imageBase64, imageMime}){
   const apiKey = await sGet('geminiApiKey');
   if(!apiKey) throw new Error('NO_API_KEY');
-  const model = (await sGet('geminiModel')) || 'gemini-2.0-flash';
+  const model = (await sGet('geminiModel')) || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const parts = [{ text }];
@@ -498,7 +494,10 @@ async function callGeminiAPI({text, imageBase64, imageMime}){
 
   const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   const data = await res.json();
-  if(!res.ok){ throw new Error(data?.error?.message || ('HTTP '+res.status)); }
+  if(!res.ok){
+    if(res.status === 404){ throw new Error(`মডেল "${model}" পাওয়া যায়নি বা বন্ধ হয়ে গেছে — সেটিংসে গিয়ে অন্য মডেলের নাম (যেমন gemini-2.5-flash) বসাও`); }
+    throw new Error(data?.error?.message || ('HTTP '+res.status));
+  }
   const outText = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
   if(!outText) throw new Error('EMPTY_RESPONSE');
   const cleaned = outText.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
