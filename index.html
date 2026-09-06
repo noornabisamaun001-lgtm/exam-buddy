@@ -537,13 +537,49 @@ async function deleteChapter(id){
 /* ---- Question template form ---- */
 function openTemplateForm(chapterId, templateId){
   const t = templateId ? DB.templates.find(x=>x.id===templateId) : null;
-  const vars = t ? t.variables : [{name:'a',min:2,max:9},{name:'b',min:2,max:9}];
-  const opts = t ? t.optionExprs : ['{a}+{b}','{a}-{b}','{a}*{b}','{a}+{b}+1'];
-  const correctIndex = t ? t.correctIndex : 0;
+  if(!t){
+    // ---- Quick Add mode (new template): text/photo/voice -> auto-save, stay open for the next one ----
+    openModal(`
+      <h3>নতুন প্রশ্ন যোগ করো</h3>
+      <div class="field">
+        <label>প্রশ্ন লিখো, বলো, অথবা ছবি দাও</label>
+        <textarea id="ai-raw-text" placeholder="প্রশ্নটা যেভাবে বইয়ে আছে ঠিক সেভাবে বসাও — অপশনসহ, আর কোনটা সঠিক সেটাও বলে দাও"></textarea>
+        <button type="button" class="btn" id="mic-btn" onclick="toggleVoiceInput()" style="margin:8px 0;">🎤 বলে টাইপ করো</button>
+        <div class="hint" style="margin-bottom:8px;">অথবা ছবি দাও:</div>
+        <input type="file" id="ai-image-input" accept="image/*" capture="environment" style="margin-bottom:10px;">
+      </div>
+      <button type="button" class="btn btn-gold btn-block" id="ai-parse-btn" onclick="quickAddViaAI('${chapterId}')">⚡ যোগ করো</button>
+      <div class="hint" style="text-align:center; margin-top:8px;">এই সেশনে যোগ হয়েছে: <b id="quick-add-count">0</b> টা</div>
+      <details style="margin-top:16px;">
+        <summary class="link-btn" style="cursor:pointer;">নিজে হাতে লিখতে চাইলে এখানে ক্লিক করো</summary>
+        <div style="margin-top:12px;">
+          <div class="field"><label>প্রশ্নের বিবৃতি ({a},{b} ও $...$ ব্যবহার করুন)</label>
+            <textarea id="tpl-stem" placeholder="যদি $x=$ {a} এবং $y=$ {b}, তবে $x+y=$ কত?"></textarea>
+          </div>
+          <div class="field"><label>ভেরিয়েবলের সীমা</label>
+            <div id="var-rows">${varRow({name:'a',min:2,max:9})}${varRow({name:'b',min:2,max:9})}</div>
+            <button class="link-btn" type="button" onclick="addVarRow()">+ ভেরিয়েবল যোগ</button>
+          </div>
+          <div class="field"><label>অপশন — সঠিক উত্তরে বাটন চাপুন</label>
+            <div id="opt-rows">${['{a}+{b}','{a}-{b}','{a}*{b}','{a}+{b}+1'].map((o,i)=>optRow(o,i,i===0)).join('')}</div>
+          </div>
+          <div class="field"><label>ব্যাখ্যা (ঐচ্ছিক)</label><textarea id="tpl-expl"></textarea></div>
+          <button class="btn btn-primary btn-block" onclick="saveTemplateForm('${chapterId}','')">এটা ম্যানুয়ালি সংরক্ষণ করো</button>
+        </div>
+      </details>
+      <button class="btn btn-block" style="margin-top:14px;" onclick="closeModal(); renderTemplateList('${chapterId}');">শেষ, বন্ধ করো</button>
+    `);
+    quickAddCount = 0;
+    return;
+  }
+  // ---- Edit mode (existing template): full manual form ----
+  const vars = t.variables;
+  const opts = t.optionExprs;
+  const correctIndex = t.correctIndex;
   openModal(`
-    <h3>${t?'প্রশ্ন সম্পাদনা':'নতুন প্রশ্ন প্যাটার্ন'}</h3>
+    <h3>প্রশ্ন সম্পাদনা</h3>
     <div class="field"><label>প্রশ্নের বিবৃতি (ভেরিয়েবল লিখতে {a},{b}.. ব্যবহার করুন, গণিতের জন্য $...$)</label>
-      <textarea id="tpl-stem" placeholder="যদি $x=$ {a} এবং $y=$ {b}, তবে $x+y=$ কত?">${t?esc(t.stem):''}</textarea>
+      <textarea id="tpl-stem" placeholder="যদি $x=$ {a} এবং $y=$ {b}, তবে $x+y=$ কত?">${esc(t.stem)}</textarea>
     </div>
     <div class="field"><label>ভেরিয়েবলের সীমা</label>
       <div id="var-rows">
@@ -557,9 +593,9 @@ function openTemplateForm(chapterId, templateId){
         ${opts.map((o,i)=>optRow(o,i,i===correctIndex)).join('')}
       </div>
     </div>
-    <div class="field"><label>ব্যাখ্যা (ঐচ্ছিক)</label><textarea id="tpl-expl">${t?esc(t.explanation||''):''}</textarea></div>
+    <div class="field"><label>ব্যাখ্যা (ঐচ্ছিক)</label><textarea id="tpl-expl">${esc(t.explanation||'')}</textarea></div>
     <div class="btn-row">
-      <button class="btn btn-primary" onclick="saveTemplateForm('${chapterId}','${templateId||''}')">সংরক্ষণ করুন</button>
+      <button class="btn btn-primary" onclick="saveTemplateForm('${chapterId}','${templateId}')">সংরক্ষণ করুন</button>
       <button class="btn" onclick="closeModal()">বাতিল</button>
     </div>`);
 }
@@ -594,6 +630,73 @@ async function saveTemplateForm(chapterId, templateId){
   if(templateId){ Object.assign(DB.templates.find(x=>x.id===templateId), data); }
   else { DB.templates.push({id:uid(), ...data}); }
   await saveTemplates(); closeModal(); toast('সংরক্ষিত হয়েছে'); render();
+}
+
+let recognition;
+function toggleVoiceInput(){
+  const btn = document.getElementById('mic-btn');
+  const ta = document.getElementById('ai-raw-text');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ toast('এই ব্রাউজারে ভয়েস ইনপুট নেই — Chrome ব্যবহার করো'); return; }
+  if(recognition && recognition._active){ recognition.stop(); return; }
+  recognition = new SR();
+  recognition.lang = 'bn-BD';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition._active = true;
+  btn.textContent = '🔴 শুনছি... (থামাতে আবার চাপো)';
+  recognition.onresult = (e)=>{
+    const t = e.results[0][0].transcript;
+    ta.value = (ta.value ? ta.value + ' ' : '') + t;
+  };
+  recognition.onerror = ()=>{ toast('ভয়েস বোঝা যায়নি, আবার চেষ্টা করো'); };
+  recognition.onend = ()=>{ recognition._active = false; btn.textContent = '🎤 বলে টাইপ করো'; };
+  recognition.start();
+}
+let quickAddCount = 0;
+async function quickAddViaAI(chapterId){
+  const rawText = document.getElementById('ai-raw-text').value.trim();
+  const fileInput = document.getElementById('ai-image-input');
+  const file = fileInput.files[0];
+  if(!rawText && !file){ toast('প্রশ্ন লিখো, বলো, অথবা ছবি দাও'); return; }
+  const btn = document.getElementById('ai-parse-btn');
+  btn.disabled = true; btn.textContent = 'যোগ হচ্ছে...';
+  try{
+    const payload = { text: rawText || undefined };
+    if(file){ payload.imageBase64 = await fileToBase64(file); payload.imageMime = file.type; }
+    const r = await fetch('/api/parse-question', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await r.json();
+    if(!r.ok || data.error){ toast('সমস্যা হয়েছে: ' + (data.error || 'অজানা') + ' — আবার চেষ্টা করো'); return; }
+    if(!data.stem || !Array.isArray(data.optionExprs) || data.optionExprs.length<2){ toast('AI বুঝতে পারেনি, আরেকটু স্পষ্ট করে দাও'); return; }
+    DB.templates.push({
+      id: uid(), chapterId,
+      stem: data.stem,
+      variables: (data.variables && data.variables.length) ? data.variables : [],
+      optionExprs: data.optionExprs,
+      correctIndex: Number.isInteger(data.correctIndex) ? data.correctIndex : 0,
+      explanation: data.explanation || ''
+    });
+    await saveTemplates();
+    quickAddCount++;
+    const counterEl = document.getElementById('quick-add-count');
+    if(counterEl) counterEl.textContent = quickAddCount;
+    document.getElementById('ai-raw-text').value = '';
+    fileInput.value = '';
+    toast('✅ যোগ হয়েছে (' + quickAddCount + ' টা এই সেশনে)');
+    document.getElementById('ai-raw-text').focus();
+  }catch(e){
+    toast('নেটওয়ার্ক সমস্যা, আবার চেষ্টা করো');
+  }finally{
+    btn.disabled = false; btn.textContent = '⚡ যোগ করো';
+  }
+}
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
 }
 
 /* handle #/templates-<chapterId> route inline (list view) */
