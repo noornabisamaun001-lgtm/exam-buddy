@@ -8,7 +8,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.2/math.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
@@ -34,6 +33,7 @@ h1,h2,h3,.serif{font-family:'Source Serif 4', serif;}
 button{font-family:inherit; cursor:pointer;}
 input,select,textarea{font-family:inherit;}
 @media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms !important; transition-duration:.01ms !important;} }
+@keyframes spin{ to{ transform:rotate(360deg); } }
 
 /* ---------- Compass intro ---------- */
 #intro{
@@ -103,14 +103,11 @@ body.exam-mode main{padding:0;}
 .group-title{font-weight:600; font-size:1rem;}
 .group-meta{color:var(--ink-soft); font-size:.78rem;}
 .group-body{max-height:0; overflow:hidden; transition:max-height .35s ease;}
-.group-card.open .group-body{max-height:6000px;}
+.group-card.open .group-body{max-height:8000px;}
 .chapter-row{display:flex; align-items:center; justify-content:space-between; padding:12px 18px; border-top:1px solid var(--line); flex-wrap:wrap; gap:8px;}
 .chapter-row:hover{background:#FBF9F3;}
 .chapter-name{font-size:.93rem; font-weight:500;}
 .chapter-count{font-size:.78rem; color:var(--ink-soft);}
-.type-badge{display:inline-block; font-size:.68rem; font-weight:700; padding:1px 8px; border-radius:10px; margin-left:6px; vertical-align:middle;}
-.type-numeric{background:#E4F1EC; color:var(--teal);}
-.type-concept{background:#EFE3F3; color:#6A3E86;}
 .row-actions{display:flex; gap:6px; flex-wrap:wrap;}
 .icon-btn{width:30px; height:30px; border:none; background:none; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); transition:background .2s,color .2s; flex-shrink:0;}
 .icon-btn:hover{background:var(--brass-dim); color:var(--ink);}
@@ -163,7 +160,7 @@ body.exam-mode main{padding:0;}
 .input-icon-btn:hover{border-color:var(--brass); background:var(--brass-dim);}
 .input-icon-btn.recording{background:var(--clay); border-color:var(--clay); color:#fff; animation:pulseRec 1.2s infinite;}
 @keyframes pulseRec{0%,100%{opacity:1;}50%{opacity:.6;}}
-#ai-raw-text{flex:1; border:none; background:transparent; resize:none; padding:9px 6px; font-size:.94rem; max-height:220px; min-height:38px; line-height:1.4; outline:none;}
+#ai-raw-text{flex:1; border:none; background:transparent; resize:none; padding:9px 6px; font-size:.94rem; max-height:260px; min-height:38px; line-height:1.4; outline:none;}
 .input-send-btn{flex-shrink:0; width:40px; height:40px; border-radius:50%; border:none; background:var(--brass); color:#fff; font-size:1.1rem; display:flex; align-items:center; justify-content:center; transition:background .2s, transform .15s;}
 .input-send-btn:hover{background:#a37820; transform:scale(1.05);}
 .input-send-btn[disabled]{background:#C9C2AF; cursor:not-allowed; transform:none;}
@@ -191,10 +188,10 @@ body.exam-mode main{padding:0;}
 .timer.low{color:var(--clay); border-color:var(--clay); background:#FBEAE5;}
 .progress-bar{height:4px; background:var(--line);}
 .progress-fill{height:100%; background:var(--brass); transition:width .3s ease;}
-.q-wrap{max-width:680px; margin:0 auto; padding:22px 20px calc(140px + env(safe-area-inset-bottom));}
+.q-wrap{max-width:680px; margin:0 auto; padding:22px 20px calc(140px + env(safe-area-inset-bottom)); cursor:default;}
 .q-num{color:var(--ink-soft); font-size:.85rem; margin-bottom:10px;}
 .q-stem{font-size:1.08rem; line-height:1.7; margin-bottom:22px;}
-.q-fig{max-width:100%; margin:0 0 18px; border-radius:8px; border:1px solid var(--line);}
+.q-hint-dbl{font-size:.72rem; color:#B9B2A0; text-align:center; margin-top:22px;}
 .opt{display:flex; align-items:center; gap:14px; padding:14px 16px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:10px; background:var(--paper); transition:border-color .18s, background .18s;}
 .opt:hover{border-color:var(--brass-dim);}
 .opt.selected{border-color:var(--ink); background:#F1EEE4;}
@@ -227,6 +224,8 @@ body.exam-mode main{padding:0;}
 .review-opt{padding:8px 12px; border-radius:8px; font-size:.88rem; margin-bottom:6px; border:1px solid var(--line);}
 .review-opt.is-correct{border-color:var(--teal); background:#F1F8F5;}
 .review-opt.is-wrong{border-color:var(--clay); background:#FDF2EF;}
+.explain-text{font-size:.95rem; color:var(--ink-soft); line-height:1.7; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);}
+.explain-text b{color:var(--ink); font-weight:700;}
 
 /* Performance */
 .perf-summary{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px;}
@@ -234,7 +233,6 @@ body.exam-mode main{padding:0;}
 .perf-card{background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:16px 18px;}
 .perf-card .v{font-size:1.4rem; font-weight:700; font-family:'Source Serif 4',serif;}
 .perf-card .l{font-size:.78rem; color:var(--ink-soft);}
-.perf-card .delta{font-size:.8rem; font-weight:600; margin-top:4px;}
 .up{color:var(--teal);} .down{color:var(--clay);}
 .chart-wrap{background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:22px;}
 .hist-item{display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border:1px solid var(--line); border-radius:10px; margin-bottom:8px; background:var(--paper);}
@@ -242,10 +240,13 @@ body.exam-mode main{padding:0;}
 .hist-item .r{font-weight:700; font-family:'Source Serif 4',serif;}
 .weak-row{display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-radius:8px; background:#FBF3EA; margin-bottom:6px; font-size:.87rem;}
 
-/* Toast / confirm */
+/* Toast / generating overlay */
 .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:12px 20px; border-radius:10px; font-size:.87rem; opacity:0; visibility:hidden; transition:all .3s ease; z-index:300; max-width:90vw; text-align:center;}
 .toast.show{opacity:1; visibility:visible; transform:translateX(-50%) translateY(0);}
 .watermark{position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.035; display:flex; align-items:center; justify-content:center; font-size:3rem; font-family:'Source Serif 4',serif; transform:rotate(-25deg); user-select:none;}
+#gen-overlay{position:fixed; inset:0; background:rgba(27,36,48,.82); z-index:500; display:none; align-items:center; justify-content:center; flex-direction:column; color:#fff; gap:16px; text-align:center; padding:24px;}
+#gen-overlay .spinner{width:46px; height:46px; border:4px solid rgba(255,255,255,.22); border-top-color:var(--brass); border-radius:50%; animation:spin .8s linear infinite;}
+#gen-overlay-text{font-family:'Source Serif 4',serif; font-size:1.08rem; max-width:320px;}
 .katex{font-size:1.02em;}
 ::selection{background:var(--brass-dim);}
 </style>
@@ -300,6 +301,7 @@ body.exam-mode main{padding:0;}
 
 <div class="overlay" id="modal-overlay"><div class="modal" id="modal-body"></div></div>
 <div class="toast" id="toast"></div>
+<div id="gen-overlay"><div class="spinner"></div><div id="gen-overlay-text">তৈরি হচ্ছে...</div></div>
 
 <script>
 /* ============================= STORAGE LAYER ============================= */
@@ -316,22 +318,23 @@ async function sSet(key, val){
   catch(e){ mem[key] = val; }
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
 /* ============================= APP STATE ============================= */
-let DB = { profile:null, groups:[], chapters:[], templates:[], history:[] };
+let DB = { profile:null, groups:[], chapters:[], questions:[], history:[] };
 let currentExam = null; // in-progress exam object
 
 async function loadDB(){
   DB.profile = await sGet('profile');
   DB.groups = (await sGet('groups')) || [];
   DB.chapters = (await sGet('chapters')) || [];
-  DB.templates = (await sGet('templates')) || [];
+  DB.questions = (await sGet('questions')) || [];
   DB.history = (await sGet('history')) || [];
   currentExam = await sGet('exam:current');
 }
 async function saveGroups(){ await sSet('groups', DB.groups); }
 async function saveChapters(){ await sSet('chapters', DB.chapters); }
-async function saveTemplates(){ await sSet('templates', DB.templates); }
+async function saveQuestions(){ await sSet('questions', DB.questions); }
 async function saveHistory(){ await sSet('history', DB.history); }
 async function saveExam(){ await sSet('exam:current', currentExam); }
 async function clearExam(){ currentExam = null; try{ localStorage.removeItem(LS_PREFIX+'exam:current'); }catch(e){ delete mem['exam:current']; } }
@@ -340,7 +343,7 @@ async function clearExam(){ currentExam = null; try{ localStorage.removeItem(LS_
 function toast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
-  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2600);
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2800);
 }
 function renderMath(text){
   if(!text) return '';
@@ -373,6 +376,27 @@ function fmtSecs(s){
   return String(m).padStart(2,'0')+':'+String(r).padStart(2,'0');
 }
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function shuffleOptionsArr(options, correctIndex){
+  const idxArr = options.map((_,i)=>i);
+  for(let i=idxArr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [idxArr[i],idxArr[j]]=[idxArr[j],idxArr[i]]; }
+  const shuffled = idxArr.map(i=>options[i]);
+  const newCorrectIndex = idxArr.indexOf(correctIndex);
+  return { options: shuffled, correctIndex: newCorrectIndex };
+}
+async function runWithConcurrency(tasks, limit){
+  const results = new Array(tasks.length);
+  let idx = 0;
+  async function worker(){
+    while(idx < tasks.length){
+      const cur = idx++;
+      try{ results[cur] = await tasks[cur](); }
+      catch(e){ results[cur] = null; }
+    }
+  }
+  const workers = Array.from({length: Math.min(limit, tasks.length)}, worker);
+  await Promise.all(workers);
+  return results;
+}
 
 /* ============================= MODAL ============================= */
 function openModal(html){
@@ -382,7 +406,30 @@ function openModal(html){
 function closeModal(){ document.getElementById('modal-overlay').classList.remove('show'); }
 document.getElementById('modal-overlay').addEventListener('click', e=>{ if(e.target.id==='modal-overlay') closeModal(); });
 
-/* ============================= ROUTER (unified — single source of truth) ============================= */
+/* ---- Custom-styled confirmation modal (replaces ugly browser confirm() for exam flows) ---- */
+function openConfirmModal({title, message, confirmText, cancelText, tone, onConfirm}){
+  const toneClass = tone==='danger' ? 'btn-danger' : 'btn-gold';
+  openModal(`
+    <h3>${esc(title)}</h3>
+    <p style="color:var(--ink-soft); font-size:.94rem; line-height:1.65; margin-bottom:22px;">${message}</p>
+    <div class="btn-row">
+      <button class="btn ${toneClass}" id="confirm-modal-yes">${esc(confirmText)}</button>
+      <button class="btn" onclick="closeModal()">${esc(cancelText)}</button>
+    </div>
+  `);
+  document.getElementById('confirm-modal-yes').onclick = ()=>{ closeModal(); onConfirm(); };
+}
+
+/* ---- Generating overlay (for live AI exam-question generation) ---- */
+function showGenOverlay(msg){
+  const el = document.getElementById('gen-overlay');
+  document.getElementById('gen-overlay-text').textContent = msg;
+  el.style.display = 'flex';
+}
+function updateGenOverlay(msg){ document.getElementById('gen-overlay-text').textContent = msg; }
+function hideGenOverlay(){ document.getElementById('gen-overlay').style.display = 'none'; }
+
+/* ============================= ROUTER ============================= */
 function nav(path){ location.hash = '/'+path; }
 window.addEventListener('hashchange', render);
 
@@ -402,7 +449,7 @@ async function render(){
 
   if(route==='dashboard') view.innerHTML = viewDashboard();
   else if(route==='data') view.innerHTML = await viewData();
-  else if(route==='templates') view.innerHTML = viewTemplateList(param);
+  else if(route==='templates') view.innerHTML = viewQuestionList(param);
   else if(route==='examsetup') view.innerHTML = viewExamSetup();
   else if(route==='exam'){ view.innerHTML = await viewExam(); startExamTimerLoop(); }
   else if(route==='result') view.innerHTML = viewResult(param);
@@ -413,7 +460,7 @@ async function render(){
 }
 document.getElementById('topbar-back').addEventListener('click', ()=>nav('dashboard'));
 
-/* ============================= FIREBASE AUTH ============================= */
+/* ============================= FIREBASE AUTH (persistent session, explicit sign-out only) ============================= */
 const firebaseConfig = {
   apiKey: "AIzaSyDWAUOKFsTE-HDLcufznd5741D1DTlS5YM",
   authDomain: "exambuddy-f9558.firebaseapp.com",
@@ -425,6 +472,15 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
+// Explicit LOCAL persistence so the session survives reloads and tab/browser closures.
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+// Passive sync only — never triggers a popup or forces logout on its own.
+auth.onAuthStateChanged((user)=>{
+  if(user && (!DB.profile || DB.profile.uid !== user.uid)){
+    DB.profile = { name: user.displayName || 'শিক্ষার্থী', email: user.email, uid: user.uid, signedInAt: Date.now() };
+    sSet('profile', DB.profile);
+  }
+});
 
 document.getElementById('google-btn').addEventListener('click', async ()=>{
   const provider = new firebase.auth.GoogleAuthProvider();
@@ -440,6 +496,7 @@ document.getElementById('google-btn').addEventListener('click', async ()=>{
   }
 });
 document.getElementById('signout-btn').addEventListener('click', async ()=>{
+  // Explicit sign-out is the ONLY place that clears the session / triggers account re-selection next time.
   try{ await auth.signOut(); }catch(e){}
   DB.profile = null;
   await sSet('profile', null);
@@ -454,21 +511,22 @@ function enterApp(){
 }
 
 /* ============================= GEMINI: DYNAMIC MODEL-PROOF API LAYER =============================
-   Instead of hardcoding one model name (which breaks the moment Google renames/retires it), we:
-   1) Ask Google's own ListModels endpoint which models are currently live and support generateContent.
-   2) Score & pick the best candidate (prefers "flash", higher version numbers, avoids vision/embedding-only).
-   3) Cache the working model for 24h so we don't re-discover on every call.
-   4) On any call, if the cached/chosen model 404s (deprecated), walk a fallback chain and re-cache
-      whichever model actually answers — so the app self-heals the next time Google changes something.
+   - "auto" mode asks Google which models are live right now and scores/picks the best one, cached 24h.
+   - Every call SILENTLY walks a fallback chain on overload/quota/5xx/model-retired errors — the user
+     never sees an error mid-flow; they just get their result, possibly from a different model.
+   - Only a genuinely bad/restricted API key (401/403) is surfaced, since no amount of model-switching
+     can fix an invalid credential.
 ================================================================================================= */
 const FALLBACK_MODEL_CHAIN = [
   'gemini-2.5-flash',
   'gemini-flash-latest',
   'gemini-2.0-flash',
+  'gemini-2.0-flash-001',
   'gemini-2.5-flash-lite',
   'gemini-2.5-pro',
   'gemini-1.5-flash-latest',
   'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
   'gemini-1.5-pro-latest'
 ];
 
@@ -483,6 +541,24 @@ function scoreModelName(name){
   if(/vision|embedding|aqa|gemma|image|tts|native-audio/i.test(name)) s -= 1000;
   return s;
 }
+function isTransientError(e){
+  if(!e) return false;
+  if([429,500,502,503,504].includes(e.status)) return true;
+  const msg = (e.message||'').toLowerCase();
+  return /overloaded|unavailable|resource_exhausted|rate limit|timeout|deadline|internal error|try again|server error/.test(msg);
+}
+function isModelMissingError(e){
+  if(!e) return false;
+  if(e.status===404) return true;
+  const msg = (e.message||'').toLowerCase();
+  return /not found|deprecated|is not supported|unsupported model/.test(msg);
+}
+function isAuthError(e){
+  if(!e) return false;
+  if(e.status===401 || e.status===403) return true;
+  const msg = (e.message||'').toLowerCase();
+  return /api key not valid|permission denied|invalid authentication|oauth|api_key_invalid/.test(msg);
+}
 
 async function discoverBestModel(apiKey){
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
@@ -496,11 +572,9 @@ async function discoverBestModel(apiKey){
   models.sort((a,b)=>scoreModelName(b)-scoreModelName(a));
   return models[0];
 }
-
 async function getActiveModel(apiKey, forceRefresh){
   const userModel = ((await sGet('geminiModel'))||'').trim();
-  if(userModel && userModel.toLowerCase() !== 'auto') return userModel; // explicit manual override wins
-
+  if(userModel && userModel.toLowerCase() !== 'auto') return userModel;
   const cache = await sGet('modelCache');
   const now = Date.now();
   if(!forceRefresh && cache && cache.model && (now - cache.at) < 24*3600*1000){
@@ -523,45 +597,48 @@ async function callGeminiAPI({text, imageBase64, imageMime}){
   if(imageBase64){ parts.push({ inline_data: { mime_type: imageMime || 'image/jpeg', data: imageBase64 } }); }
   const body = {
     contents: [{ role: 'user', parts }],
-    generationConfig: { temperature: 0.6, response_mime_type: 'application/json' }
+    generationConfig: { temperature: 0.65, response_mime_type: 'application/json' }
   };
 
   async function attempt(model){
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
     const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-    const data = await res.json();
+    const data = await res.json().catch(()=>({}));
     if(!res.ok){
       const err = new Error(data?.error?.message || ('HTTP '+res.status));
       err.status = res.status;
       throw err;
     }
     const outText = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
-    if(!outText) throw new Error('EMPTY_RESPONSE');
+    if(!outText){ const err = new Error('EMPTY_RESPONSE'); throw err; }
     const cleaned = outText.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
     try{ return JSON.parse(cleaned); }
-    catch(e){ throw new Error('AI থেকে প্রাপ্ত ফলাফল JSON আকারে পার্স করা যায়নি'); }
+    catch(e){ const err = new Error('PARSE_FAILED'); throw err; }
   }
 
   const primaryModel = await getActiveModel(apiKey, false);
-  const candidates = [primaryModel, ...FALLBACK_MODEL_CHAIN];
-  const tried = new Set();
+  const candidates = [primaryModel, ...FALLBACK_MODEL_CHAIN.filter(m=>m!==primaryModel)];
   let lastErr = null;
 
   for(const m of candidates){
-    if(tried.has(m)) continue;
-    tried.add(m);
-    try{
-      const result = await attempt(m);
-      if(m !== primaryModel){ await sSet('modelCache', {model:m, at:Date.now()}); } // self-heal cache
-      return result;
-    }catch(e){
-      lastErr = e;
-      const isModelIssue = e.status===404 || /not found|deprecated|is not supported/i.test(e.message||'');
-      if(isModelIssue) continue; // try next model in the chain
-      throw e; // real error (bad key, quota, parse failure) — stop immediately
+    for(let retry=0; retry<2; retry++){
+      try{
+        const result = await attempt(m);
+        if(m !== primaryModel){ await sSet('modelCache', {model:m, at:Date.now()}); } // self-heal for next time
+        return result;
+      }catch(e){
+        lastErr = e;
+        if(isAuthError(e)) throw e; // real credential problem — no fallback can fix this
+        if(e.message==='PARSE_FAILED' || e.message==='EMPTY_RESPONSE'){ break; } // try a different model
+        if(isTransientError(e) && !isModelMissingError(e) && retry===0){
+          await sleep(350 + Math.random()*350);
+          continue; // one quick silent retry on the same model (handles brief overload blips)
+        }
+        break; // move on to the next model in the chain, silently
+      }
     }
   }
-  throw lastErr || new Error('কোনো সক্রিয় Gemini মডেল পাওয়া যায়নি');
+  throw lastErr || new Error('এই মুহূর্তে কোনো Gemini মডেল সাড়া দিচ্ছে না, একটু পর আবার চেষ্টা করো');
 }
 
 /* ============================= GEMINI API SETTINGS ============================= */
@@ -572,11 +649,11 @@ async function openSettingsModal(){
   const cache = await sGet('modelCache');
   openModal(`
     <h3>Gemini API সেটিংস</h3>
-    <p class="hint" style="margin-bottom:14px;">প্রশ্ন থেকে AI দিয়ে নতুন নতুন প্রশ্ন/ভ্যারিয়েশন তৈরি করতে তোমার নিজের Gemini API Key দরকার। এটি শুধু তোমার ব্রাউজারে সংরক্ষিত থাকে, কোনো সার্ভারে পাঠানো হয় না। Key নিতে <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> ভিজিট করো।</p>
+    <p class="hint" style="margin-bottom:14px;">প্রশ্ন থেকে AI দিয়ে প্রশ্ন তৈরি করতে তোমার নিজের Gemini API Key দরকার। এটি শুধু তোমার ব্রাউজারে সংরক্ষিত থাকে, কোনো সার্ভারে পাঠানো হয় না। Key নিতে <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> ভিজিট করো।</p>
     <div class="field"><label>API Key</label><input id="set-api-key" type="password" value="${esc(key)}" placeholder="AIza..."></div>
     <div class="field"><label>মডেল</label>
       <input id="set-model" type="text" value="${esc(model)}" placeholder="auto">
-      <div class="hint">"auto" রাখলে অ্যাপ নিজে থেকেই এই মুহূর্তে সক্রিয় সবচেয়ে ভালো Gemini মডেল খুঁজে বের করে নেবে, এবং কোনো মডেল বন্ধ হয়ে গেলে স্বয়ংক্রিয়ভাবে অন্য একটিতে সরে যাবে — তাই Google মডেল আপডেট করলেও অ্যাপ ভাঙবে না। চাইলে নির্দিষ্ট কোনো মডেলের নাম টাইপ করেও জোর করে ব্যবহার করা যায়।</div>
+      <div class="hint">"auto" রাখলে অ্যাপ নিজে থেকেই সবচেয়ে ভালো সচল মডেল বেছে নেবে এবং কোনো মডেল ব্যস্ত/বন্ধ থাকলে নিঃশব্দে অন্যটিতে সরে যাবে — তাই কোনো ইন্টারাপশন হবে না।</div>
       <div class="hint" style="margin-top:8px;">শেষ সনাক্ত হওয়া সক্রিয় মডেল: <b>${cache && cache.model ? esc(cache.model) : 'এখনো সনাক্ত হয়নি'}</b> · <button type="button" class="link-btn" onclick="redetectModel()">পুনরায় সনাক্ত করো</button></div>
     </div>
     <div class="btn-row">
@@ -606,55 +683,6 @@ async function redetectModel(){
   }catch(e){ toast('সনাক্ত করা যায়নি: '+e.message); }
 }
 
-/* ---- Unified extraction prompt: handles ONE question, HUNDREDS of pasted lines, or raw notes.
-        Always returns { "items": [...] }. When routeChapters is given, each item also carries
-        a "chapterName" so a whole subject dump can be auto-sorted chapter-wise. ---- */
-function buildExtractionPrompt({rawText, hasImage, routeChapters}){
-  const routingInstruction = (routeChapters && routeChapters.length)
-    ? `\nএই গ্রুপে ইতিমধ্যে বিদ্যমান অধ্যায়সমূহ: ${routeChapters.map(c=>'"'+c+'"').join(', ')}।\nপ্রতিটি আইটেমের জন্য "chapterName" ফিল্ড অবশ্যই দাও — বিষয়বস্তু উপরের কোনো অধ্যায়ের সাথে মিললে হুবহু সেই নামটাই লিখো (বানান/স্পেসিং একদম অভিন্ন রাখো), কোনোটার সাথে না মিললে বিষয়বস্তু বুঝে যুক্তিসঙ্গত নতুন অধ্যায়ের নাম দাও।`
-    : (routeChapters ? `\nপ্রতিটি আইটেমে একটি ছোট "chapterName" ফিল্ড দাও যা প্রশ্নের উপ-বিষয়/টপিক বোঝায়।` : '');
-  return `তুমি একজন বাংলাদেশের ভর্তি পরীক্ষা (মেডিকেল/ভার্সিটি ভর্তি, HSC/SSC) প্রশ্ন বিশ্লেষক এবং প্রশ্ন-জেনারেটর AI।
-
-ব্যবহারকারী নিচে টেক্সট দেবে — এটি একটি একক MCQ হতে পারে, একাধিক প্রশ্নের বড় তালিকা (এমনকি শত শত লাইন) হতে পারে, অথবা কাঁচা নোট/অনুচ্ছেদ/বইয়ের অংশ হতে পারে যেখানে সরাসরি অপশন বা উত্তর নাও থাকতে পারে — সেক্ষেত্রে তোমাকে নিজে থেকেই গুরুত্বপূর্ণ, পরীক্ষায় আসার মতো MCQ তৈরি করে নিতে হবে।${hasImage?' একটি ছবিও সংযুক্ত থাকতে পারে — ছবিতে থাকা সব প্রশ্ন/তথ্যও বিশ্লেষণ করো।':''}
-
-শনাক্ত হওয়া প্রতিটি প্রশ্নের জন্য নিচের দুই ধাপ অনুসরণ করো:
-
-ধাপ ১ — প্রকারভেদ:
-(ক) "numeric" — সাংখ্যিক/গাণিতিক সমস্যা যেখানে সংখ্যা বদলালেই কাঠামো ঠিক রেখে নতুন প্রশ্ন হয় (গণিত, পদার্থবিজ্ঞান, রসায়নের সাংখ্যিক সমস্যা)।
-(খ) "concept" — ধারণাভিত্তিক/তাত্ত্বিক/সাহিত্য/জীববিজ্ঞান/ইতিহাস/গ্রামার ইত্যাদি, যেখানে সংখ্যা বদলে নতুন প্রশ্ন বানানো সম্ভব না — প্রসঙ্গ/উদাহরণ/শব্দচয়ন বদলাতে হয়।
-
-ধাপ ২ — স্কিমা অনুযায়ী আইটেম তৈরি করো:
-
-"numeric" হলে:
-{
-  "type": "numeric",${routingInstruction ? '\n  "chapterName": "...",' : ''}
-  "stem": "মূল প্রশ্নের বিবৃতি — গাণিতিক রাশির জন্য $...$ ব্যবহার করো, পরিবর্তনযোগ্য সংখ্যার জায়গায় {a},{b},{c}... বসাও",
-  "stemVariants": ["একই {a},{b}.. ভেরিয়েবল ব্যবহার করে, একই প্রশ্নের অর্থ অবিকৃত রেখে সামান্য ভিন্ন ভাষা/শব্দবিন্যাসে লেখা ১-২টি বিকল্প বিবৃতি — যাতে পরীক্ষায় প্রতিবার প্রশ্নটা হুবহু এক রকম না লাগে"],
-  "variables": [{"name":"a","min":সর্বনিম্ন,"max":সর্বোচ্চ}, ...],
-  "optionExprs": ["সঠিক উত্তরের math.js এক্সপ্রেশন যেমন {a}+{b}*2", "ভুল অপশন ১ এর সূত্র", "ভুল অপশন ২", "ভুল অপশন ৩"],
-  "correctIndex": 0,
-  "explanation": "সমাধানের সংক্ষিপ্ত ব্যাখ্যা"
-}
-নিয়ম: variable-এর রেঞ্জ এমন যাতে কোনো র‍্যান্ডম মানেই শূন্য দিয়ে ভাগ, ঋণাত্মক বর্গমূল, বা অবাস্তব ফলাফল না হয়। optionExprs অবশ্যই বৈধ গাণিতিক সূত্র হতে হবে (নিছক স্থির সংখ্যা নয়), যাতে ভেরিয়েবল বদলালে সব অপশনও বদলায়। ৩টি ভুল অপশন যৌক্তিক সাধারণ ভুলের প্যাটার্ন অনুসরণ করবে এবং সঠিক অপশনের সমান কখনো হবে না।
-
-"concept" হলে:
-{
-  "type": "concept",${routingInstruction ? '\n  "chapterName": "...",' : ''}
-  "variations": [
-    {"stem":"সম্পূর্ণ নতুন প্রশ্ন ১ (একই ধারণা, ভিন্ন উদাহরণ/শব্দচয়ন)","options":["ক","খ","গ","ঘ"],"correctIndex":0,"explanation":"..."},
-    ... মূল প্রশ্ন থেকে ৪-৬টি ভিন্ন ভ্যারিয়েশন — সবগুলো একই মূল টপিক/ধারণা যাচাই করবে কিন্তু কোনো দুটি হুবহু এক হবে না।
-  ]
-}
-
-সবশেষে ঠিক এই আকারে আউটপুট দাও (অন্য কিছু লিখবে না, মার্কডাউন কোড ব্লকও না):
-{ "items": [ ...উপরের স্কিমা অনুযায়ী একাধিক আইটেম (টেক্সটে যতগুলো প্রশ্ন/সম্ভাব্য প্রশ্ন পাওয়া যায় সবগুলোর জন্য একটি করে)... ] }
-
-মূল প্রশ্নের ভাষা (বাংলা/ইংরেজি) বজায় রাখো। শুধুমাত্র বৈধ JSON আউটপুট দাও, অন্য কোনো টেক্সট নয়।
-
-ব্যবহারকারীর টেক্সট:
-${rawText || '(সংযুক্ত ছবিতে দেওয়া প্রশ্ন(সমূহ) বিশ্লেষণ করো)'}`;
-}
-
 /* ============================= DASHBOARD ============================= */
 function viewDashboard(){
   return `
@@ -663,11 +691,11 @@ function viewDashboard(){
   <div class="tiles">
     <button class="tile" onclick="nav('examsetup')">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-      <h3>পরীক্ষা</h3><p>নতুন প্র্যাকটিস পরীক্ষা শুরু করুন — নির্দিষ্ট সময় ও প্রশ্নসংখ্যা বেছে নিন।</p>
+      <h3>পরীক্ষা</h3><p>নতুন প্র্যাকটিস পরীক্ষা শুরু করুন — প্রতিবার সম্পূর্ণ নতুন, অনন্য প্রশ্ন পাবেন।</p>
     </button>
     <button class="tile" onclick="nav('data')">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>
-      <h3>ডেটা</h3><p>বিষয়, পত্র, অধ্যায় ও AI দিয়ে প্রশ্ন সংরক্ষণ ও সাজান।</p>
+      <h3>ডেটা</h3><p>বিষয়, পত্র, অধ্যায় সাজান ও AI দিয়ে প্রশ্ন যোগ করুন।</p>
     </button>
     <button class="tile" onclick="nav('performance')">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
@@ -676,7 +704,7 @@ function viewDashboard(){
   </div>`;
 }
 
-/* ============================= DATA (Groups/Chapters/Templates) ============================= */
+/* ============================= DATA (Groups/Chapters/Questions) ============================= */
 async function viewData(){
   const hasKey = !!(await sGet('geminiApiKey'));
   let banner = hasKey ? '' : `<div class="api-key-banner"><span>⚠ AI দিয়ে প্রশ্ন যোগ করতে Gemini API Key সেট করা প্রয়োজন।</span><button class="btn btn-gold" onclick="openSettingsModal()">Key যোগ করুন</button></div>`;
@@ -688,7 +716,7 @@ async function viewData(){
     <div class="empty-hint">শুরু করতে একটি গ্রুপ তৈরি করুন (যেমন: Math 1st Paper)।</div>
     <button class="btn btn-gold" onclick="openGroupForm()">+ নতুন গ্রুপ</button>`;
   }
-  let html = `<h2 class="section-title">ডেটা</h2>${banner}<p class="section-sub">গ্রুপ → অধ্যায় → প্রশ্ন প্যাটার্ন</p>`;
+  let html = `<h2 class="section-title">ডেটা</h2>${banner}<p class="section-sub">গ্রুপ → অধ্যায় → প্রশ্ন</p>`;
   DB.groups.sort((a,b)=>a.order-b.order).forEach(g=>{
     const chapters = DB.chapters.filter(c=>c.groupId===g.id).sort((a,b)=>a.order-b.order);
     html += `<div class="group-card" id="g-${g.id}">
@@ -698,7 +726,6 @@ async function viewData(){
           <div><div class="group-title">${esc(g.name)}</div><div class="group-meta">${chapters.length} টি অধ্যায়</div></div>
         </div>
         <div class="row-actions">
-          <button class="icon-btn ai-btn" onclick="event.stopPropagation(); openIngestModal({mode:'bulk', groupId:'${g.id}'})" title="AI বাল্ক ইমপোর্ট (বড় নোট/অনেক প্রশ্ন একসাথে)">${iconBulk()}</button>
           <button class="icon-btn" onclick="event.stopPropagation(); openChapterForm('${g.id}')" title="অধ্যায় যোগ">${iconPlus()}</button>
           <button class="icon-btn" onclick="event.stopPropagation(); openGroupForm('${g.id}')" title="সম্পাদনা">${iconEdit()}</button>
           <button class="icon-btn" onclick="event.stopPropagation(); deleteGroup('${g.id}')" title="মুছুন">${iconTrash()}</button>
@@ -706,12 +733,12 @@ async function viewData(){
       </div>
       <div class="group-body">
         ${chapters.map(c=>{
-          const cnt = DB.templates.filter(t=>t.chapterId===c.id).length;
+          const cnt = DB.questions.filter(q=>q.chapterId===c.id).length;
           return `<div class="chapter-row">
-            <div><div class="chapter-name">${esc(c.name)}</div><div class="chapter-count">${cnt} টি প্রশ্ন প্যাটার্ন</div></div>
+            <div><div class="chapter-name">${esc(c.name)}</div><div class="chapter-count">${cnt} টি প্রশ্ন</div></div>
             <div class="row-actions">
               <button class="icon-btn" onclick="nav('templates/${c.id}')" title="প্রশ্ন দেখুন">${iconEye()}</button>
-              <button class="icon-btn ai-btn" onclick="openTemplateForm('${c.id}')" title="প্রশ্ন যোগ (AI)">${iconPlus()}</button>
+              <button class="icon-btn ai-btn" onclick="openIngestModal('${c.id}')" title="প্রশ্ন যোগ (AI)">${iconPlus()}</button>
               <button class="icon-btn" onclick="openChapterForm('${g.id}','${c.id}')" title="সম্পাদনা">${iconEdit()}</button>
               <button class="icon-btn" onclick="deleteChapter('${c.id}')" title="মুছুন">${iconTrash()}</button>
             </div>
@@ -728,7 +755,6 @@ function iconPlus(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="curren
 function iconEdit(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>'; }
 function iconTrash(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>'; }
 function iconEye(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>'; }
-function iconBulk(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v4M3 12h4M12 21v-4M21 12h-4M5.6 5.6l2.8 2.8M18.4 5.6l-2.8 2.8M5.6 18.4l2.8-2.8M18.4 18.4l-2.8-2.8"/><circle cx="12" cy="12" r="2.2"/></svg>'; }
 
 function toggleGroup(id){ document.getElementById('g-'+id).classList.toggle('open'); }
 
@@ -753,10 +779,10 @@ async function saveGroupForm(id){
 async function deleteGroup(id){
   if(!confirm('এই গ্রুপ ও এর সব অধ্যায়/প্রশ্ন মুছে ফেলা হবে। নিশ্চিত?')) return;
   const chapIds = DB.chapters.filter(c=>c.groupId===id).map(c=>c.id);
-  DB.templates = DB.templates.filter(t=>!chapIds.includes(t.chapterId));
+  DB.questions = DB.questions.filter(q=>!chapIds.includes(q.chapterId));
   DB.chapters = DB.chapters.filter(c=>c.groupId!==id);
   DB.groups = DB.groups.filter(g=>g.id!==id);
-  await saveGroups(); await saveChapters(); await saveTemplates(); render();
+  await saveGroups(); await saveChapters(); await saveQuestions(); render();
 }
 
 function openChapterForm(groupId, chapterId){
@@ -779,232 +805,79 @@ async function saveChapterForm(groupId, chapterId){
 }
 async function deleteChapter(id){
   if(!confirm('এই অধ্যায় ও এর প্রশ্ন মুছে ফেলা হবে। নিশ্চিত?')) return;
-  DB.templates = DB.templates.filter(t=>t.chapterId!==id);
+  DB.questions = DB.questions.filter(q=>q.chapterId!==id);
   DB.chapters = DB.chapters.filter(c=>c.id!==id);
-  await saveChapters(); await saveTemplates(); render();
+  await saveChapters(); await saveQuestions(); render();
 }
 
-/* ---- Question template list (route: templates/<chapterId>) ---- */
-function viewTemplateList(chapterId){
+/* ---- Question list (route: templates/<chapterId>) ---- */
+function viewQuestionList(chapterId){
   const chapter = DB.chapters.find(c=>c.id===chapterId);
-  const list = DB.templates.filter(t=>t.chapterId===chapterId);
+  const list = DB.questions.filter(q=>q.chapterId===chapterId);
   return `
     <button class="back-btn" style="margin-bottom:14px;" onclick="nav('data')">← ডেটা</button>
     <h2 class="section-title">${esc(chapter?chapter.name:'')}</h2>
-    <p class="section-sub">${list.length} টি সংরক্ষিত প্রশ্ন প্যাটার্ন</p>
-    ${list.map(t=>`
+    <p class="section-sub">${list.length} টি সংরক্ষিত প্রশ্ন — পরীক্ষার সময় AI প্রতিবার এগুলো থেকে নতুন ভ্যারিয়েশন তৈরি করবে</p>
+    ${list.map(q=>`
       <div class="review-item">
-        <span class="type-badge ${t.type==='concept'?'type-concept':'type-numeric'}">${t.type==='concept'?'ধারণাভিত্তিক · '+(t.variations?t.variations.length:1)+' ভ্যারিয়েশন':'সাংখ্যিক (স্বয়ংক্রিয়'+((t.stemVariants&&t.stemVariants.length)?' + '+(t.stemVariants.length+1)+' ভাষারীতি':'')+')'}</span>
-        <div class="q-stem" style="font-size:.95rem; margin:10px 0;">${renderMath(t.stem)}</div>
+        <div class="q-stem" style="font-size:.95rem; margin-bottom:10px;">${renderMath(q.stem)}</div>
         <div class="row-actions">
-          <button class="icon-btn" onclick="openTemplateForm('${chapterId}','${t.id}')" title="সম্পাদনা">${iconEdit()}</button>
-          <button class="icon-btn" onclick="deleteTemplate('${t.id}')" title="মুছুন">${iconTrash()}</button>
+          <button class="icon-btn" onclick="openQuestionEditForm('${chapterId}','${q.id}')" title="সম্পাদনা">${iconEdit()}</button>
+          <button class="icon-btn" onclick="deleteQuestion('${chapterId}','${q.id}')" title="মুছুন">${iconTrash()}</button>
         </div>
       </div>`).join('') || '<div class="empty-hint">এখনো কোনো প্রশ্ন যোগ করা হয়নি।</div>'}
-    <button class="btn btn-gold" onclick="openTemplateForm('${chapterId}')">+ নতুন প্রশ্ন (AI)</button>`;
+    <button class="btn btn-gold" onclick="openIngestModal('${chapterId}')">+ নতুন প্রশ্ন (AI)</button>`;
 }
-async function deleteTemplate(id){
-  if(!confirm('এই প্রশ্ন প্যাটার্ন মুছবেন?')) return;
-  const t = DB.templates.find(x=>x.id===id);
-  DB.templates = DB.templates.filter(x=>x.id!==id);
-  await saveTemplates();
-  document.getElementById('view').innerHTML = viewTemplateList(t.chapterId);
-}
-
-/* ---- Question template form ---- */
-function openTemplateForm(chapterId, templateId){
-  const t = templateId ? DB.templates.find(x=>x.id===templateId) : null;
-
-  if(!t){
-    openIngestModal({mode:'chapter', chapterId});
-    return;
-  }
-
-  if(t.type === 'concept'){
-    openConceptEditor(chapterId, t);
-    return;
-  }
-
-  // ---- Edit mode (existing numeric template): full manual form ----
-  const vars = t.variables || [];
-  const opts = t.optionExprs || [];
-  const correctIndex = t.correctIndex || 0;
-  openModal(`
-    <h3>প্রশ্ন সম্পাদনা (সাংখ্যিক)</h3>
-    <div class="field"><label>প্রশ্নের বিবৃতি (ভেরিয়েবল লিখতে {a},{b}.. ব্যবহার করুন, গণিতের জন্য $...$)</label>
-      <textarea id="tpl-stem" placeholder="যদি $x=$ {a} এবং $y=$ {b}, তবে $x+y=$ কত?">${esc(t.stem)}</textarea>
-    </div>
-    <div class="field"><label>বিকল্প ভাষা/শব্দচয়ন (ঐচ্ছিক, প্রতি লাইনে একটি — একই {a},{b} ভেরিয়েবল ব্যবহার করুন)</label>
-      <textarea id="tpl-stem-variants" placeholder="একই প্রশ্নের ভিন্নভাবে লেখা রূপ, থাকলে এক লাইনে একটি করে">${(t.stemVariants||[]).join('\n')}</textarea>
-      <div class="hint">পরীক্ষার সময় এলোমেলোভাবে মূল বিবৃতি বা এই বিকল্পগুলোর যেকোনো একটি বেছে নেওয়া হবে — ফলে সংখ্যার পাশাপাশি ভাষাও পরিবর্তিত হয়।</div>
-    </div>
-    <div class="field"><label>ভেরিয়েবলের সীমা</label>
-      <div id="var-rows">${vars.map(v=>varRow(v)).join('')}</div>
-      <button class="link-btn" type="button" onclick="addVarRow()">+ ভেরিয়েবল যোগ</button>
-      <div class="hint">প্রতিটি ভেরিয়েবলের জন্য min–max রেঞ্জ থেকে র‍্যান্ডম পূর্ণসংখ্যা বাছা হবে।</div>
-    </div>
-    <div class="field"><label>অপশন (সূত্র আকারে, {a}{b} ব্যবহার করুন) — সঠিক উত্তরে বাটন চাপুন</label>
-      <div id="opt-rows">${opts.map((o,i)=>optRow(o,i,i===correctIndex)).join('')}</div>
-    </div>
-    <div class="field"><label>ব্যাখ্যা (ঐচ্ছিক)</label><textarea id="tpl-expl">${esc(t.explanation||'')}</textarea></div>
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="saveTemplateForm('${chapterId}','${templateId}')">সংরক্ষণ করুন</button>
-      <button class="btn" onclick="closeModal()">বাতিল</button>
-    </div>`);
-}
-function varRow(v){
-  return `<div class="field-row" style="margin-bottom:8px;">
-    <div class="field" style="flex:.6;"><input class="var-name" value="${esc(v.name)}" placeholder="নাম যেমন a"></div>
-    <div class="field"><input class="var-min" type="number" value="${v.min}" placeholder="min"></div>
-    <div class="field"><input class="var-max" type="number" value="${v.max}" placeholder="max"></div>
-  </div>`;
-}
-function addVarRow(){
-  document.getElementById('var-rows').insertAdjacentHTML('beforeend', varRow({name:'',min:1,max:9}));
-}
-function optRow(val, i, checked){
-  return `<div class="opt-row">
-    <input type="radio" name="correct-opt" value="${i}" ${checked?'checked':''}>
-    <input type="text" class="opt-expr" value="${esc(val)}" placeholder="সূত্র, যেমন {a}+{b}">
-  </div>`;
-}
-async function saveTemplateForm(chapterId, templateId){
-  const stem = document.getElementById('tpl-stem').value.trim();
-  if(!stem) return toast('প্রশ্ন লিখুন');
-  const variantsEl = document.getElementById('tpl-stem-variants');
-  const stemVariants = variantsEl ? variantsEl.value.split('\n').map(s=>s.trim()).filter(Boolean) : [];
-  const names = [...document.querySelectorAll('.var-name')].map(x=>x.value.trim());
-  const mins = [...document.querySelectorAll('.var-min')].map(x=>parseFloat(x.value));
-  const maxs = [...document.querySelectorAll('.var-max')].map(x=>parseFloat(x.value));
-  const variables = names.map((n,i)=>({name:n, min:mins[i], max:maxs[i]})).filter(v=>v.name);
-  const exprs = [...document.querySelectorAll('.opt-expr')].map(x=>x.value.trim());
-  const correctRadio = document.querySelector('input[name=correct-opt]:checked');
-  const correctIndex = correctRadio ? parseInt(correctRadio.value) : 0;
-  const explanation = document.getElementById('tpl-expl').value.trim();
-  if(exprs.some(e=>!e)) return toast('সব অপশন পূরণ করুন');
-  const data = {chapterId, type:'numeric', stem, stemVariants, variables, optionExprs:exprs, correctIndex, explanation};
-  if(templateId){ Object.assign(DB.templates.find(x=>x.id===templateId), data); }
-  else { DB.templates.push({id:uid(), ...data}); }
-  await saveTemplates(); closeModal(); toast('সংরক্ষিত হয়েছে'); render();
-}
-
-/* ---- Concept-type template editor (list of AI-generated variations) ---- */
-function openConceptEditor(chapterId, t){
-  openModal(`
-    <h3>ধারণাভিত্তিক প্রশ্ন — ${t.variations.length} টি ভ্যারিয়েশন</h3>
-    <p class="hint" style="margin-bottom:12px;">এই প্রশ্নগুলো এক্সাম চলাকালীন র‍্যান্ডমভাবে বেছে নেওয়া হবে, প্রতিবার অপশনের ক্রমও এলোমেলো করা হবে।</p>
-    <div id="concept-var-list">
-      ${t.variations.map((v,i)=>conceptVarBlock(v,i)).join('')}
-    </div>
-    <div class="btn-row" style="margin-top:14px;">
-      <button class="btn btn-gold" onclick="generateMoreVariations('${chapterId}','${t.id}')" id="gen-more-btn">⚡ AI দিয়ে আরও ভ্যারিয়েশন তৈরি করো</button>
-    </div>
-    <div class="btn-row" style="margin-top:14px;">
-      <button class="btn btn-primary" onclick="saveConceptEdits('${chapterId}','${t.id}')">সংরক্ষণ করুন</button>
-      <button class="btn" onclick="closeModal()">বাতিল</button>
-    </div>`);
-}
-function conceptVarBlock(v,i){
-  return `<div class="review-item" data-idx="${i}" style="margin-bottom:10px;">
-    <div class="field"><label>প্রশ্ন ${i+1}</label><textarea class="cv-stem">${esc(v.stem)}</textarea></div>
-    <div class="field"><label>অপশন — সঠিকটিতে বাটন চাপুন</label>
-      ${v.options.map((o,oi)=>`<div class="opt-row"><input type="radio" name="cv-correct-${i}" value="${oi}" ${oi===v.correctIndex?'checked':''}><input type="text" class="cv-opt" value="${esc(o)}"></div>`).join('')}
-    </div>
-    <div class="field"><label>ব্যাখ্যা</label><textarea class="cv-expl">${esc(v.explanation||'')}</textarea></div>
-    <button class="btn btn-danger" type="button" onclick="this.closest('.review-item').remove()">এই ভ্যারিয়েশনটি মুছুন</button>
-  </div>`;
-}
-async function saveConceptEdits(chapterId, templateId){
-  const t = DB.templates.find(x=>x.id===templateId);
-  const blocks = [...document.querySelectorAll('#concept-var-list .review-item')];
-  const variations = blocks.map(b=>{
-    const stem = b.querySelector('.cv-stem').value.trim();
-    const opts = [...b.querySelectorAll('.cv-opt')].map(x=>x.value.trim());
-    const checked = b.querySelector('input[type=radio]:checked');
-    const correctIndex = checked ? parseInt(checked.value) : 0;
-    const explanation = b.querySelector('.cv-expl').value.trim();
-    return {stem, options:opts, correctIndex, explanation};
-  }).filter(v=>v.stem && v.options.every(o=>o));
-  if(variations.length===0) return toast('অন্তত একটি ভ্যারিয়েশন থাকতে হবে');
-  t.variations = variations;
-  t.stem = variations[0].stem;
-  await saveTemplates();
-  closeModal();
-  toast('সংরক্ষিত হয়েছে');
-  document.getElementById('view').innerHTML = viewTemplateList(chapterId);
-}
-async function generateMoreVariations(chapterId, templateId){
-  const t = DB.templates.find(x=>x.id===templateId);
-  const apiKey = await sGet('geminiApiKey');
-  if(!apiKey){ closeModal(); toast('প্রথমে Gemini API Key সেট করুন'); openSettingsModal(); return; }
-  const btn = document.getElementById('gen-more-btn');
-  if(btn){ btn.disabled = true; btn.textContent = 'তৈরি হচ্ছে...'; }
-  try{
-    const base = t.variations[0];
-    const followUp = `মূল প্রশ্ন: ${base.stem}\nঅপশনসমূহ: ${base.options.join(' | ')}\nসঠিক উত্তর: ${base.options[base.correctIndex]}\nব্যাখ্যা: ${base.explanation||''}\n\nএই একই মূল ধারণার উপর ভিত্তি করে আরও ৬-৮টি সম্পূর্ণ নতুন, ভিন্ন প্রশ্ন তৈরি করো — প্রসঙ্গ/উদাহরণ/শব্দচয়ন পরিবর্তন করে, কিন্তু মূল ধারণা অক্ষুণ্ণ রেখে। কোনোটিই আগের প্রশ্নের সাথে হুবহু মিলবে না।`;
-    const data = await callGeminiAPI({ text: buildExtractionPrompt({rawText: followUp, hasImage:false, routeChapters:null}) });
-    const items = Array.isArray(data.items) ? data.items : (data.type ? [data] : []);
-    const conceptItem = items.find(i=>i.type==='concept' && Array.isArray(i.variations) && i.variations.length);
-    if(conceptItem){
-      t.variations.push(...conceptItem.variations);
-      await saveTemplates();
-      toast(`✅ ${conceptItem.variations.length} টি নতুন ভ্যারিয়েশন যোগ হয়েছে`);
-      openConceptEditor(chapterId, t);
-    } else {
-      toast('AI থেকে সঠিক ফলাফল পাওয়া যায়নি, আবার চেষ্টা করো');
-    }
-  }catch(e){
-    toast(e.message==='NO_API_KEY' ? 'প্রথমে API Key সেট করুন' : 'ত্রুটি: '+e.message);
-  }finally{
-    if(btn){ btn.disabled = false; btn.textContent = '⚡ AI দিয়ে আরও ভ্যারিয়েশন তৈরি করো'; }
-  }
+async function deleteQuestion(chapterId, id){
+  if(!confirm('এই প্রশ্নটি মুছবেন?')) return;
+  DB.questions = DB.questions.filter(x=>x.id!==id);
+  await saveQuestions();
+  document.getElementById('view').innerHTML = viewQuestionList(chapterId);
 }
 
 /* ============================= UNIFIED AI INGESTION ENGINE =============================
-   One entry point handles BOTH:
-     mode:'chapter' — quick-add into a single already-open chapter (single Q or a big paste of many)
-     mode:'bulk'    — paste an entire subject's worth of notes for a GROUP; AI extracts many MCQs
-                       AND assigns/creates the correct chapter for each one automatically.
+   ONE input box for everything: a single question, hundreds of pasted lines, raw notes,
+   or a whole textbook page photo with an instruction like "extract 30 questions from this".
+   The question is stored EXACTLY as given/extracted — no upfront "variations" are created
+   here. Fresh variations are generated live, at exam time, from this saved data.
 ========================================================================================= */
-let currentIngest = null;
+let currentIngestChapterId = null;
 let quickAddCount = 0;
-let quickAddChapCount = 0;
 let attachedImage = null; // {base64, mime}
 
-function openIngestModal(opts){
-  currentIngest = opts;
-  const isBulk = opts.mode === 'bulk';
-  const group = isBulk ? DB.groups.find(g=>g.id===opts.groupId) : null;
+function buildExtractionPrompt(rawText, hasImage){
+  return `তুমি একজন বাংলাদেশের ভর্তি পরীক্ষা (মেডিকেল/ভার্সিটি ভর্তি, HSC/SSC) বিষয়ের অভিজ্ঞ শিক্ষক ও প্রশ্ন-বিশ্লেষক AI। ঠিক একটা সাধারণ AI চ্যাটবটের মতোই স্বাধীনভাবে বুঝে-শুনে সাড়া দেবে — নিচে যা দেওয়া হবে তা থেকে যতটা সম্ভব ভালো ও প্রাসঙ্গিক MCQ বের করে আনবে।
 
-  const manualFallback = !isBulk ? `
-    <details style="margin-top:16px;">
-      <summary class="link-btn" style="cursor:pointer;">নিজে হাতে সাংখ্যিক প্রশ্ন লিখতে চাইলে এখানে ক্লিক করো</summary>
-      <div style="margin-top:12px;">
-        <div class="field"><label>প্রশ্নের বিবৃতি ({a},{b} ও $...$ ব্যবহার করুন)</label>
-          <textarea id="tpl-stem" placeholder="যদি $x=$ {a} এবং $y=$ {b}, তবে $x+y=$ কত?"></textarea>
-        </div>
-        <div class="field"><label>বিকল্প ভাষা/শব্দচয়ন (ঐচ্ছিক, প্রতি লাইনে একটি)</label>
-          <textarea id="tpl-stem-variants" placeholder="একই প্রশ্নের ভিন্নভাবে লেখা রূপ, থাকলে"></textarea>
-        </div>
-        <div class="field"><label>ভেরিয়েবলের সীমা</label>
-          <div id="var-rows">${varRow({name:'a',min:2,max:9})}${varRow({name:'b',min:2,max:9})}</div>
-          <button class="link-btn" type="button" onclick="addVarRow()">+ ভেরিয়েবল যোগ</button>
-        </div>
-        <div class="field"><label>অপশন — সঠিক উত্তরে বাটন চাপুন</label>
-          <div id="opt-rows">${['{a}+{b}','{a}-{b}','{a}*{b}','{a}+{b}+1'].map((o,i)=>optRow(o,i,i===0)).join('')}</div>
-        </div>
-        <div class="field"><label>ব্যাখ্যা (ঐচ্ছিক)</label><textarea id="tpl-expl"></textarea></div>
-        <button class="btn btn-primary btn-block" onclick="saveTemplateForm('${opts.chapterId}','')">এটা ম্যানুয়ালি সংরক্ষণ করো</button>
-      </div>
-    </details>` : '';
+ব্যবহারকারী নিচে টেক্সট এবং/অথবা একটি ছবি দেবে। এটি হতে পারে:
+- একটামাত্র প্রশ্ন,
+- কপি-পেস্ট করা শত শত লাইনের প্রশ্নের তালিকা,
+- বইয়ের/নোটের কাঁচা অনুচ্ছেদ (প্রশ্ন নিজে বানিয়ে নিতে হবে, অপশন/উত্তর নাও থাকতে পারে),
+- অথবা পুরো একটা অধ্যায়ের/বইয়ের পাতার ছবি, সাথে হয়তো নির্দেশনা যেমন "এখান থেকে ৩০টা প্রশ্ন বানাও"।
 
+টেক্সটে ব্যবহারকারীর কোনো স্পষ্ট নির্দেশনা থাকলে (কতগুলো প্রশ্ন চাই, কোন অংশ থেকে, কী রকম কঠিনতা) তা যথাসম্ভব অনুসরণ করো। নির্দেশনা না থাকলে টেক্সটে/ছবিতে যত প্রকৃত/সম্ভাব্য গুরুত্বপূর্ণ প্রশ্ন পাওয়া যায় প্রায় সবগুলোর জন্য একটা করে আইটেম বানাও।
+
+প্রতিটি প্রশ্নের জন্য:
+- "stem": প্রশ্নের সম্পূর্ণ বিবৃতি, মূল অর্থ ঠিক রেখে পরিষ্কারভাবে লেখা। গাণিতিক রাশি/সমীকরণ অবশ্যই $...$ এর মধ্যে বসাও (যেমন $x^2+5x=0$) যাতে সঠিকভাবে রেন্ডার হয়, নয়তো ভাঙা দেখাবে। প্রশ্নটি কোনো চিত্র/figure-এর উপর নির্ভরশীল হলে, প্রয়োজনীয় মান/সম্পর্কগুলো লেখার মধ্যেই স্পষ্টভাবে বর্ণনা করে দাও যাতে ছবি ছাড়াও প্রশ্নটি সমাধানযোগ্য থাকে।
+- "options": ঠিক ৪টি অপশনের অ্যারে।
+- "correctIndex": সঠিক অপশনের ইনডেক্স (0-3)। উৎসে উত্তর দেওয়া না থাকলে নিজে সঠিকভাবে সমাধান করে বের করো।
+- "explanation": বিস্তারিত, নির্ভুল ও ধাপে ধাপে ব্যাখ্যা (কমপক্ষে ২-৩ বাক্য, প্রয়োজনে সূত্র/হিসাব দেখাও)।
+
+গুরুত্বপূর্ণ: প্রশ্নটা উৎসে যেভাবে আছে ঠিক সেভাবেই সংরক্ষণ করবে — নিজে থেকে সংখ্যা/প্রসঙ্গ বদলে "ভ্যারিয়েশন" বানানোর দরকার নেই, সেটা পরীক্ষার সময় আলাদাভাবে করা হবে।
+
+ঠিক এই আকারে আউটপুট দাও (অন্য কিছু লিখবে না, মার্কডাউন কোড ব্লকও না):
+{ "items": [ {"stem":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."} ] }
+
+মূল ভাষা (বাংলা/ইংরেজি) বজায় রাখো। শুধুমাত্র বৈধ JSON আউটপুট দাও।
+
+ব্যবহারকারীর টেক্সট/নির্দেশনা:
+${rawText || '(সংযুক্ত ছবি থেকে প্রশ্ন(সমূহ) বিশ্লেষণ/তৈরি করো)'}`;
+}
+
+function openIngestModal(chapterId){
+  currentIngestChapterId = chapterId;
   openModal(`
-    <h3>${isBulk ? 'বাল্ক AI ইমপোর্ট — '+esc(group?group.name:'') : 'নতুন প্রশ্ন যোগ করো'}</h3>
-    <p class="hint" style="margin-bottom:10px;">
-      ${isBulk
-        ? 'বই/নোট থেকে বড় অংশ পেস্ট করো — একসাথে অনেক প্রশ্ন, এমনকি পুরো একটা পত্র/অধ্যায়ের নোটও দিতে পারো। AI নিজে থেকে MCQ বানিয়ে সঠিক অধ্যায়ে ভাগ করে সংরক্ষণ করবে (প্রয়োজনে নতুন অধ্যায়ও তৈরি হবে)।'
-        : 'প্রশ্নটা বইয়ে যেভাবে আছে ঠিক সেভাবে লিখো/বলো/ছবি দাও — একসাথে একাধিক প্রশ্নও পেস্ট করতে পারো, এমনকি অপশন ছাড়া কাঁচা নোটও দিতে পারো। AI নিজেই বুঝে নেবে।'}
-    </p>
+    <h3>নতুন প্রশ্ন যোগ করো (AI)</h3>
+    <p class="hint" style="margin-bottom:10px;">একটা প্রশ্ন লেখো, একসাথে অনেক প্রশ্ন পেস্ট করো, কাঁচা নোট দাও, অথবা বইয়ের পাতার ছবি তুলে দাও — সাথে চাইলে নির্দেশনাও লেখো (যেমন "এখান থেকে ৩০টা প্রশ্ন বানাও")। AI নিজে বুঝে নেবে।</p>
     <div class="unified-input">
       <div id="attach-preview" class="attach-preview" style="display:none;">
         <img id="attach-thumb" src="">
@@ -1013,81 +886,80 @@ function openIngestModal(opts){
       </div>
       <div class="input-row">
         <button type="button" class="input-icon-btn" id="mic-btn" onclick="toggleVoiceInput()" title="বলে টাইপ করো">🎤</button>
-        <textarea id="ai-raw-text" rows="${isBulk?6:1}" placeholder="${isBulk?'এখানে বড় অংশ পেস্ট করো (নোট, অনেক প্রশ্ন, বা বইয়ের অংশ)...':'প্রশ্ন লেখো (একাধিকও পেস্ট করতে পারো)...'}" oninput="autoGrowInput(this)"></textarea>
+        <textarea id="ai-raw-text" rows="4" placeholder="এখানে লেখো/পেস্ট করো..." oninput="autoGrowInput(this)"></textarea>
         <button type="button" class="input-icon-btn" onclick="document.getElementById('ai-image-input').click()" title="ছবি সংযুক্ত করো">📷</button>
         <button type="button" class="input-send-btn" id="ai-parse-btn" onclick="runIngest()" title="AI দিয়ে যোগ করো (Enter)">⚡</button>
       </div>
     </div>
     <input type="file" id="ai-image-input" accept="image/*" capture="environment" style="display:none;" onchange="previewAttachment(this)">
-    <div class="hint" style="text-align:center; margin-top:6px;">
-      এই সেশনে যোগ হয়েছে: <b id="quick-add-count">0</b> টি প্রশ্ন${isBulk?' · <b id="quick-add-chaps">0</b> টি অধ্যায়ে':''} · <span class="kbd-hint">Enter</span> পাঠাতে, <span class="kbd-hint">Shift+Enter</span> নতুন লাইনের জন্য
-    </div>
-    ${manualFallback}
-    <button class="btn btn-block" style="margin-top:14px;" onclick="closeIngestAndRefresh()">শেষ, বন্ধ করো</button>
+    <div class="hint" style="text-align:center; margin-top:6px;">এই সেশনে যোগ হয়েছে: <b id="quick-add-count">0</b> টি প্রশ্ন · <span class="kbd-hint">Enter</span> পাঠাতে, <span class="kbd-hint">Shift+Enter</span> নতুন লাইনের জন্য</div>
+    <details style="margin-top:16px;">
+      <summary class="link-btn" style="cursor:pointer;">নিজে হাতে প্রশ্ন লিখতে চাইলে এখানে ক্লিক করো</summary>
+      <div style="margin-top:12px;">
+        <div class="field"><label>প্রশ্নের বিবৃতি</label><textarea id="q-stem-manual" placeholder="প্রশ্ন লেখো, গণিতের জন্য $...$ ব্যবহার করো"></textarea></div>
+        <div class="field"><label>অপশন — সঠিক উত্তরে বাটন চাপুন</label>
+          <div id="q-opt-rows">${[0,1,2,3].map(i=>manualOptRow('',i,i===0)).join('')}</div>
+        </div>
+        <div class="field"><label>ব্যাখ্যা (ঐচ্ছিক)</label><textarea id="q-expl-manual"></textarea></div>
+        <button class="btn btn-primary btn-block" onclick="saveManualQuestion('${chapterId}','')">এটা ম্যানুয়ালি সংরক্ষণ করো</button>
+      </div>
+    </details>
+    <button class="btn btn-block" style="margin-top:14px;" onclick="closeModal(); document.getElementById('view').innerHTML = viewQuestionList('${chapterId}');">শেষ, বন্ধ করো</button>
   `);
-  quickAddCount = 0; quickAddChapCount = 0;
-  attachedImage = null;
+  quickAddCount = 0; attachedImage = null;
   setTimeout(()=>document.getElementById('ai-raw-text')?.focus(),50);
 }
-
-async function closeIngestAndRefresh(){
-  const ingest = currentIngest;
-  closeModal();
-  if(!ingest) return;
-  if(ingest.mode==='bulk'){
-    document.getElementById('view').innerHTML = await viewData();
-  } else if(ingest.mode==='chapter'){
-    document.getElementById('view').innerHTML = viewTemplateList(ingest.chapterId);
-  }
+function manualOptRow(val, i, checked){
+  return `<div class="opt-row">
+    <input type="radio" name="q-correct-opt" value="${i}" ${checked?'checked':''}>
+    <input type="text" class="q-opt-manual" value="${esc(val)}" placeholder="অপশন ${i+1}">
+  </div>`;
 }
-
-function resolveOrCreateChapter(groupId, chapterName){
-  const name = (chapterName||'').trim();
-  const chaptersInGroup = DB.chapters.filter(c=>c.groupId===groupId);
-  if(name){
-    const found = chaptersInGroup.find(c=>c.name.trim().toLowerCase()===name.toLowerCase());
-    if(found) return found.id;
-    const newChap = {id:uid(), groupId, name, order:chaptersInGroup.length};
-    DB.chapters.push(newChap);
-    return newChap.id;
-  }
-  let general = chaptersInGroup.find(c=>c.name==='সাধারণ (AI ইমপোর্ট)');
-  if(!general){
-    general = {id:uid(), groupId, name:'সাধারণ (AI ইমপোর্ট)', order:chaptersInGroup.length};
-    DB.chapters.push(general);
-  }
-  return general.id;
+function openQuestionEditForm(chapterId, questionId){
+  const q = DB.questions.find(x=>x.id===questionId);
+  if(!q) return;
+  openModal(`
+    <h3>প্রশ্ন সম্পাদনা</h3>
+    <div class="field"><label>প্রশ্নের বিবৃতি</label><textarea id="q-stem-manual">${esc(q.stem)}</textarea></div>
+    <div class="field"><label>অপশন — সঠিক উত্তরে বাটন চাপুন</label>
+      <div id="q-opt-rows">${q.options.map((o,i)=>manualOptRow(o,i,i===q.correctIndex)).join('')}</div>
+    </div>
+    <div class="field"><label>ব্যাখ্যা (ঐচ্ছিক)</label><textarea id="q-expl-manual">${esc(q.explanation||'')}</textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveManualQuestion('${chapterId}','${questionId}')">সংরক্ষণ করুন</button>
+      <button class="btn" onclick="closeModal()">বাতিল</button>
+    </div>`);
 }
-
-function insertTemplateFromItem(chapterId, item){
-  if(!item || !item.type) return false;
-  if(item.type==='numeric'){
-    if(!item.stem || !Array.isArray(item.optionExprs) || item.optionExprs.length<2) return false;
-    DB.templates.push({
-      id: uid(), chapterId, type:'numeric',
-      stem: item.stem,
-      stemVariants: Array.isArray(item.stemVariants) ? item.stemVariants.filter(s=>s && s.trim()) : [],
-      variables: Array.isArray(item.variables) ? item.variables : [],
-      optionExprs: item.optionExprs,
-      correctIndex: Number.isInteger(item.correctIndex) ? item.correctIndex : 0,
-      explanation: item.explanation || ''
-    });
-    return true;
+async function saveManualQuestion(chapterId, questionId){
+  const stem = document.getElementById('q-stem-manual').value.trim();
+  if(!stem) return toast('প্রশ্ন লিখুন');
+  const opts = [...document.querySelectorAll('.q-opt-manual')].map(x=>x.value.trim());
+  if(opts.some(o=>!o)) return toast('সব অপশন পূরণ করুন');
+  const checked = document.querySelector('input[name=q-correct-opt]:checked');
+  const correctIndex = checked ? parseInt(checked.value) : 0;
+  const explanation = document.getElementById('q-expl-manual').value.trim();
+  if(questionId){
+    const q = DB.questions.find(x=>x.id===questionId);
+    Object.assign(q, {stem, options:opts, correctIndex, explanation});
+  } else {
+    DB.questions.push({id:uid(), chapterId, stem, options:opts, correctIndex, explanation});
   }
-  if(item.type==='concept'){
-    if(!Array.isArray(item.variations) || item.variations.length===0) return false;
-    const variations = item.variations.filter(v=>v && v.stem && Array.isArray(v.options) && v.options.length>=2);
-    if(variations.length===0) return false;
-    DB.templates.push({
-      id: uid(), chapterId, type:'concept',
-      stem: variations[0].stem,
-      variations
-    });
-    return true;
-  }
-  return false;
+  await saveQuestions(); closeModal(); toast('সংরক্ষিত হয়েছে');
+  document.getElementById('view').innerHTML = viewQuestionList(chapterId);
 }
-
+function insertQuestionFromItem(chapterId, item){
+  if(!item || !item.stem || !Array.isArray(item.options) || item.options.length<2) return false;
+  let correctIndex = Number.isInteger(item.correctIndex) ? item.correctIndex : 0;
+  if(correctIndex<0 || correctIndex>=item.options.length) correctIndex = 0;
+  DB.questions.push({
+    id: uid(), chapterId,
+    stem: item.stem,
+    options: item.options,
+    correctIndex,
+    explanation: item.explanation || ''
+  });
+  return true;
+}
 async function runIngest(){
   const rawTextEl = document.getElementById('ai-raw-text');
   const rawText = rawTextEl ? rawTextEl.value.trim() : '';
@@ -1098,36 +970,22 @@ async function runIngest(){
   const btn = document.getElementById('ai-parse-btn');
   btn.disabled = true; const prevLabel = btn.textContent; btn.textContent = '⏳';
   try{
-    const isBulk = currentIngest && currentIngest.mode==='bulk';
-    let routeChapters = null;
-    if(isBulk){
-      routeChapters = DB.chapters.filter(c=>c.groupId===currentIngest.groupId).map(c=>c.name);
-    }
-    const prompt = buildExtractionPrompt({rawText, hasImage: !!attachedImage, routeChapters});
+    const prompt = buildExtractionPrompt(rawText, !!attachedImage);
     const data = await callGeminiAPI({
       text: prompt,
       imageBase64: attachedImage ? attachedImage.base64 : undefined,
       imageMime: attachedImage ? attachedImage.mime : undefined
     });
-    const items = Array.isArray(data.items) ? data.items : (data.type ? [data] : []);
+    const items = Array.isArray(data.items) ? data.items : [];
     if(items.length===0){ toast('AI কোনো প্রশ্ন শনাক্ত করতে পারেনি, আরেকটু স্পষ্ট করে দাও'); return; }
-
-    const chaptersTouched = new Set();
     let added = 0;
-    for(const item of items){
-      const chapterId = isBulk ? resolveOrCreateChapter(currentIngest.groupId, item.chapterName) : currentIngest.chapterId;
-      const ok = insertTemplateFromItem(chapterId, item);
-      if(ok){ added++; chaptersTouched.add(chapterId); }
-    }
+    items.forEach(it=>{ if(insertQuestionFromItem(currentIngestChapterId, it)) added++; });
     if(added===0){ toast('AI বুঝতে পারেনি, আরেকটু স্পষ্ট করে দাও'); return; }
-
-    if(isBulk){ await saveChapters(); }
-    await saveTemplates();
-    quickAddCount += added; quickAddChapCount += chaptersTouched.size;
+    await saveQuestions();
+    quickAddCount += added;
     const c1 = document.getElementById('quick-add-count'); if(c1) c1.textContent = quickAddCount;
-    const c2 = document.getElementById('quick-add-chaps'); if(c2) c2.textContent = quickAddChapCount;
     rawTextEl.value=''; autoGrowInput(rawTextEl); clearAttachment();
-    toast(`✅ ${added} টি প্রশ্ন যোগ হয়েছে` + (isBulk ? ` (${chaptersTouched.size} টি অধ্যায়ে)` : ''));
+    toast(`✅ ${added} টি প্রশ্ন যোগ হয়েছে`);
     rawTextEl.focus();
   }catch(e){
     if(e.message==='NO_API_KEY'){ toast('প্রথমে API Key সেট করো'); openSettingsModal(); }
@@ -1140,7 +998,7 @@ async function runIngest(){
 /* ---- Unified input helpers: voice, image attach, auto-grow ---- */
 function autoGrowInput(el){
   el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 220) + 'px';
+  el.style.height = Math.min(el.scrollHeight, 260) + 'px';
 }
 function previewAttachment(input){
   const file = input.files[0];
@@ -1189,70 +1047,121 @@ function toggleVoiceInput(){
   recognition.start();
 }
 
-/* ============================= VARIATION ENGINE ============================= */
-function subst(text, values){
-  return text.replace(/\{(\w+)\}/g, (m,k)=> values[k]!==undefined ? values[k] : m);
+/* ============================= LIVE EXAM-TIME AI QUESTION GENERATION =============================
+   The saved questions are the raw source. Every time an exam starts, AI generates a FRESH,
+   unique variation of each one that's needed (new numbers if numeric, new phrasing/context if
+   conceptual) — so no two questions in one exam are ever identical, and no exam repeats the last.
+   Requests are chunked + run with limited concurrency for speed; if AI is unavailable, it falls
+   back to the original question (shuffled options) so the exam never fails to start.
+================================================================================================= */
+function buildExamGenPrompt(items){
+  const payload = items.map(it=>({
+    id: it.id, need: it.need, stem: it.stem, options: it.options,
+    correctIndex: it.correctIndex, explanation: it.explanation||''
+  }));
+  return `তুমি একজন বাংলাদেশের ভর্তি পরীক্ষা প্রস্তুতি বিশেষজ্ঞ AI। নিচে কিছু মূল (সোর্স) MCQ দেওয়া হলো — প্রতিটির সাথে "need" সংখ্যা আছে, তার মানে ঠিক ততগুলো সম্পূর্ণ নতুন, সতেজ ভ্যারিয়েশন বানাতে হবে।
+
+নিয়মাবলী:
+- সংখ্যাভিত্তিক/গাণিতিক প্রশ্ন হলে সংখ্যা বদলে দাও — তবে আসল ভর্তি পরীক্ষার মতোই হাতে-কলমে সহজে সমাধানযোগ্য মান রাখবে, অহেতুক বড়/জটিল সংখ্যা নয় — এবং অপশন ও সঠিক উত্তর নতুন সংখ্যা অনুযায়ী পুনরায় সঠিকভাবে হিসাব করে বসাও।
+- ধারণাভিত্তিক/তাত্ত্বিক প্রশ্ন হলে প্রসঙ্গ/উদাহরণ/শব্দচয়ন বদলে দাও, মূল ধারণা অক্ষুণ্ণ রেখে।
+- একই "id"-এর একাধিক ভ্যারিয়েশন চাইলে সেগুলো একে অপরের থেকেও সম্পূর্ণ ভিন্ন হতে হবে। পুরো তালিকার কোনো দুটি আইটেমই একে অপরের সাথে হুবহু বা প্রায় হুবহু মিলবে না।
+- মূল প্রশ্ন কোনো চিত্র/figure-নির্ভর হলে, প্রয়োজনীয় মান লেখাতেই বর্ণনা করে দাও যাতে ছবি ছাড়াই সমাধানযোগ্য থাকে।
+- গাণিতিক রাশি লিখতে $...$ ব্যবহার করো।
+- প্রতিটি ব্যাখ্যা বিস্তারিত, নির্ভুল ও ধাপে ধাপে হতে হবে (কমপক্ষে ২-৩ বাক্য)।
+- ৪টি করে অপশন, ঠিক একটি সঠিক।
+- মূল ভাষা (বাংলা/ইংরেজি) বজায় রাখো।
+
+ঠিক এই আকারে আউটপুট দাও (অন্য কিছু লিখবে না, মার্কডাউন কোড ব্লকও না):
+{ "generated": [ {"sourceId":"...", "stem":"...", "options":["...","...","...","..."], "correctIndex":0, "explanation":"..."} ] }
+
+সোর্স প্রশ্নসমূহ:
+${JSON.stringify(payload)}`;
 }
-function safeEval(expr){
-  try{
-    const v = math.evaluate(expr);
-    if(typeof v !== 'number' || !isFinite(v) || Number.isNaN(v)) return null;
-    return Math.round(v*1000)/1000;
-  }catch(e){ return null; }
+function normalizeSig(stem){
+  return (stem||'').toLowerCase().replace(/[^\u0980-\u09FF0-9a-z]/g,'').slice(0,140);
 }
-function shuffleOptionsArr(options, correctIndex){
-  const idxArr = options.map((_,i)=>i);
-  for(let i=idxArr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [idxArr[i],idxArr[j]]=[idxArr[j],idxArr[i]]; }
-  const shuffled = idxArr.map(i=>options[i]);
-  const newCorrectIndex = idxArr.indexOf(correctIndex);
-  return { options: shuffled, correctIndex: newCorrectIndex };
-}
-function generateVariation(template, usedSignatures){
-  return template.type === 'concept'
-    ? generateConceptVariation(template, usedSignatures)
-    : generateNumericVariation(template, usedSignatures);
-}
-function generateNumericVariation(template, usedSignatures){
-  const MAX_TRY = 40;
-  const stemPool = [template.stem, ...(template.stemVariants||[])].filter(Boolean);
-  for(let attempt=0; attempt<MAX_TRY; attempt++){
-    const scope = {};
-    (template.variables||[]).forEach(v=>{
-      const lo = Math.ceil(v.min), hi = Math.floor(v.max);
-      scope[v.name] = lo + Math.floor(Math.random()*Math.max(1,(hi-lo+1)));
-    });
-    const stemIdx = Math.floor(Math.random()*stemPool.length);
-    const stemChoice = stemPool[stemIdx];
-    const sig = template.id+':n:'+stemIdx+':'+JSON.stringify(scope);
-    if(usedSignatures.has(sig)) continue;
-    const values = template.optionExprs.map(e => safeEval(subst(e, scope)));
-    if(values.some(v=>v===null)) continue;
-    const uniqueVals = new Set(values.map(v=>v.toString()));
-    if(uniqueVals.size !== values.length) continue;
-    usedSignatures.add(sig);
-    const stemText = subst(stemChoice, scope);
-    const {options, correctIndex} = shuffleOptionsArr(values.map(v=>String(v)), template.correctIndex);
-    return {
-      templateId: template.id, chapterId: template.chapterId,
-      stem: stemText, options, correctIndex, explanation: template.explanation||''
-    };
+async function generateExamQuestionsForExam(pool, n, onProgress){
+  const apiKey = await sGet('geminiApiKey');
+
+  // Decide how many fresh copies each source question needs, round-robin across a shuffled pool.
+  let poolShuffled = [...pool];
+  for(let i=poolShuffled.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [poolShuffled[i],poolShuffled[j]]=[poolShuffled[j],poolShuffled[i]]; }
+  const needMap = new Map();
+  let total = 0, i = 0, guard = 0;
+  while(total < n && guard < n*6){
+    const item = poolShuffled[i % poolShuffled.length];
+    needMap.set(item.id, (needMap.get(item.id)||0)+1);
+    total++; i++; guard++;
   }
-  return null;
-}
-function generateConceptVariation(template, usedSignatures){
-  const variations = (template.variations && template.variations.length)
-    ? template.variations
-    : [{ stem: template.stem, options: template.optionExprs||[], correctIndex: template.correctIndex||0, explanation: template.explanation||'' }];
-  let candidates = variations.map((v,i)=>i).filter(i=>!usedSignatures.has(template.id+':c:'+i));
-  if(candidates.length===0) candidates = variations.map((v,i)=>i);
-  const pick = candidates[Math.floor(Math.random()*candidates.length)];
-  usedSignatures.add(template.id+':c:'+pick);
-  const v = variations[pick];
-  const {options, correctIndex} = shuffleOptionsArr(v.options, v.correctIndex);
-  return {
-    templateId: template.id, chapterId: template.chapterId,
-    stem: v.stem, options, correctIndex, explanation: v.explanation||''
-  };
+  const byId = new Map(pool.map(p=>[p.id,p]));
+  const needItems = [...needMap.entries()].map(([id,need])=>({...byId.get(id), need}));
+
+  const finalQuestions = [];
+  const usedSig = new Set();
+  function pushUnique(q, allowDup){
+    const s = normalizeSig(q.stem);
+    if(s && usedSig.has(s) && !allowDup) return false;
+    if(s) usedSig.add(s);
+    finalQuestions.push(q);
+    return true;
+  }
+  function fallbackFrom(it){
+    const {options, correctIndex} = shuffleOptionsArr(it.options, it.correctIndex);
+    return { chapterId: it.chapterId, stem: it.stem, options, correctIndex, explanation: it.explanation||'' };
+  }
+
+  if(!apiKey){
+    // No API key at all — exam still works, just uses the saved questions directly (shuffled options).
+    needItems.forEach(it=>{ for(let k=0;k<it.need;k++){ const q = fallbackFrom(it); if(!pushUnique(q)) pushUnique(q,true); } });
+    return finalQuestions.slice(0,n);
+  }
+
+  // Chunk by cumulative "need" (not item count) so each request stays small & fast.
+  const chunks = []; let cur = [], curNeed = 0;
+  for(const it of needItems){
+    if(curNeed + it.need > 15 && cur.length){ chunks.push(cur); cur=[]; curNeed=0; }
+    cur.push(it); curNeed += it.need;
+  }
+  if(cur.length) chunks.push(cur);
+
+  let done = 0;
+  const tasks = chunks.map(chunk => async ()=>{
+    try{
+      const data = await callGeminiAPI({ text: buildExamGenPrompt(chunk) });
+      done++; if(onProgress) onProgress(done, chunks.length);
+      return Array.isArray(data.generated) ? data.generated : [];
+    }catch(e){
+      done++; if(onProgress) onProgress(done, chunks.length);
+      return null;
+    }
+  });
+  const results = await runWithConcurrency(tasks, 3);
+
+  results.forEach((gen, ci)=>{
+    const chunk = chunks[ci];
+    const bySource = {};
+    if(Array.isArray(gen)){ gen.forEach(g=>{ if(g && g.sourceId){ (bySource[g.sourceId]=bySource[g.sourceId]||[]).push(g); } }); }
+    chunk.forEach(it=>{
+      const arr = bySource[it.id] || [];
+      let used = 0;
+      for(const g of arr){
+        if(used>=it.need) break;
+        if(!g || !g.stem || !Array.isArray(g.options) || g.options.length<2) continue;
+        let ci2 = Number.isInteger(g.correctIndex) ? g.correctIndex : 0;
+        if(ci2<0 || ci2>=g.options.length) ci2 = 0;
+        const q = { chapterId: it.chapterId, stem:g.stem, options:g.options, correctIndex:ci2, explanation:g.explanation||it.explanation||'' };
+        if(pushUnique(q)) used++;
+      }
+      for(; used<it.need; used++){
+        const q = fallbackFrom(it);
+        if(!pushUnique(q)) pushUnique(q, true);
+        used = used; // fallback always counted to keep total correct
+      }
+    });
+  });
+
+  for(let i2=finalQuestions.length-1;i2>0;i2--){ const j=Math.floor(Math.random()*(i2+1)); [finalQuestions[i2],finalQuestions[j]]=[finalQuestions[j],finalQuestions[i2]]; }
+  return finalQuestions.slice(0,n);
 }
 
 /* ============================= EXAM SETUP ============================= */
@@ -1260,10 +1169,10 @@ const PRESETS = [ {n:15,t:10}, {n:30,t:25}, {n:60,t:60}, {n:100,t:60}, {n:200,t:
 let setupSelection = { preset: PRESETS[0], custom:false };
 
 function viewExamSetup(){
-  const totalQs = DB.templates.length;
+  const totalQs = DB.questions.length;
   return `
   <h2 class="section-title">পরীক্ষা কনফিগার করুন</h2>
-  <p class="section-sub">সংরক্ষিত প্রশ্ন প্যাটার্ন: ${totalQs} টি</p>
+  <p class="section-sub">সংরক্ষিত প্রশ্ন: ${totalQs} টি</p>
   <div class="preset-grid">
     ${PRESETS.map((p,i)=>`<button class="preset ${i===0?'active':''}" data-i="${i}" onclick="pickPreset(${i})"><div class="n">${p.n}</div><div class="t">${p.t} মিনিট</div></button>`).join('')}
     <button class="preset" id="preset-custom" onclick="pickCustom()"><div class="n">কাস্টম</div><div class="t">নিজের মতো</div></button>
@@ -1285,9 +1194,9 @@ function viewExamSetup(){
         </div>
         <div class="group-meta">${chapters.length} অধ্যায়</div>
       </div>
-      <div class="group-body" style="max-height:6000px;">
+      <div class="group-body" style="max-height:8000px;">
         ${chapters.map(c=>{
-          const cnt = DB.templates.filter(t=>t.chapterId===c.id).length;
+          const cnt = DB.questions.filter(q=>q.chapterId===c.id).length;
           return `<div class="chapter-row">
             <div style="display:flex; align-items:center; gap:12px;">
               <input type="checkbox" class="select-check chap-check" data-chapter="${c.id}" checked>
@@ -1325,7 +1234,7 @@ async function beginExam(weakChapterIds){
   if(weakChapterIds){ chapterIds = weakChapterIds; }
   else { chapterIds = [...document.querySelectorAll('.chap-check:checked')].map(x=>x.dataset.chapter); }
   if(chapterIds.length===0) return toast('অন্তত একটি অধ্যায় নির্বাচন করুন');
-  const pool = DB.templates.filter(t=>chapterIds.includes(t.chapterId));
+  const pool = DB.questions.filter(q=>chapterIds.includes(q.chapterId));
   if(pool.length===0) return toast('নির্বাচিত অধ্যায়ে কোনো প্রশ্ন নেই');
 
   let n, durationSec;
@@ -1335,29 +1244,18 @@ async function beginExam(weakChapterIds){
     durationSec = (parseInt(document.getElementById('custom-t').value)||10)*60;
   } else { n = setupSelection.preset.n; durationSec = setupSelection.preset.t*60; }
 
-  const usedSig = new Set();
-  const questions = [];
-  let shuffledPool = [...pool];
-  let guard = 0;
-  while(questions.length < n && guard < n*10){
-    guard++;
-    if(shuffledPool.length===0) shuffledPool = [...pool];
-    const idx = Math.floor(Math.random()*shuffledPool.length);
-    const tpl = shuffledPool.splice(idx,1)[0];
-    const q = generateVariation(tpl, usedSig);
-    if(q) questions.push(q);
-  }
-  if(questions.length===0) return toast('বৈধ প্রশ্ন তৈরি করা যায়নি — প্রশ্ন প্যাটার্ন পরীক্ষা করুন');
+  showGenOverlay('তোমার জন্য নতুন, অনন্য প্রশ্ন তৈরি করা হচ্ছে...');
+  let questions = null;
+  try{
+    questions = await generateExamQuestionsForExam(pool, n, (done,tot)=>{
+      updateGenOverlay(`প্রশ্ন তৈরি হচ্ছে... (${done}/${tot})`);
+    });
+  }catch(e){ questions = null; }
+  hideGenOverlay();
 
-  currentExam = {
-    id: uid(),
-    startedAt: Date.now(),
-    durationSec,
-    questions,
-    answers: {},
-    _focusIdx: 0,
-    status: 'active'
-  };
+  if(!questions || questions.length===0) return toast('প্রশ্ন তৈরি করা যায়নি, আবার চেষ্টা করো');
+
+  currentExam = { id: uid(), startedAt: Date.now(), durationSec, questions, answers:{}, _focusIdx:0, status:'active' };
   await saveExam();
   nav('exam');
 }
@@ -1396,6 +1294,7 @@ function renderExamBody(){
         <div class="opt-text">${renderMath(opt)}</div>
       </div>`;
     }).join('')}
+    <div class="q-hint-dbl">দ্রুত পরবর্তী প্রশ্নে যেতে ডাবল-ক্লিক করো বা Space চাপো</div>
   </div>
   <div class="exam-nav">
     <button class="btn" onclick="examGo(${idx-1})" ${idx===0?'disabled':''}>← আগের</button>
@@ -1415,16 +1314,23 @@ async function selectAnswer(qIdx, optIdx){
   await saveExam();
   document.getElementById('view').innerHTML = renderExamBody();
 }
-function examGo(idx){
+function examGo(idx, smooth){
   if(!currentExam || idx<0 || idx>=currentExam.questions.length) return;
   currentExam._focusIdx = idx;
   document.getElementById('view').innerHTML = renderExamBody();
-  window.scrollTo(0,0);
+  const stemEl = document.querySelector('.q-stem');
+  if(smooth!==false && stemEl){ stemEl.scrollIntoView({behavior:'smooth', block:'center'}); }
+  else { window.scrollTo(0,0); }
 }
 function exitExamPrompt(){
-  if(confirm('পরীক্ষা থেকে বের হতে চাও? তোমার অগ্রগতি সংরক্ষিত থাকবে, পরে ফিরে আসতে পারবে।')){
-    nav('dashboard');
-  }
+  openConfirmModal({
+    title: 'পরীক্ষা থেকে বের হবে?',
+    message: 'তোমার অগ্রগতি সংরক্ষিত থাকবে, পরে ফিরে এসে চালিয়ে যেতে পারবে।',
+    confirmText: 'হ্যাঁ, বের হও',
+    cancelText: 'থাকি',
+    tone: 'default',
+    onConfirm: ()=> nav('dashboard')
+  });
 }
 function startExamTimerLoop(){
   clearInterval(examTick);
@@ -1440,10 +1346,14 @@ function confirmSubmitExam(){
   const total = currentExam.questions.length;
   const answered = Object.keys(currentExam.answers).length;
   const unans = total-answered;
-  if(confirm(`আপনি ${answered}/${total} টি প্রশ্নের উত্তর দিয়েছেন${unans?` (${unans}টি অনুত্তরিত)`:''}। জমা দিতে চান?`)){
-    clearInterval(examTick);
-    submitExam(false);
-  }
+  openConfirmModal({
+    title: 'পরীক্ষা জমা দেবে?',
+    message: `তুমি <b>${answered}/${total}</b> টি প্রশ্নের উত্তর দিয়েছ${unans?` — <b>${unans}টি এখনো অনুত্তরিত</b>`:''}। জমা দেওয়ার পর আর উত্তর বদলানো যাবে না।`,
+    confirmText: 'হ্যাঁ, জমা দাও',
+    cancelText: 'আরেকটু দেখি',
+    tone: unans>0 ? 'danger' : 'default',
+    onConfirm: ()=>{ clearInterval(examTick); submitExam(false); }
+  });
 }
 async function submitExam(auto){
   let correct=0, wrong=0, unanswered=0;
@@ -1453,7 +1363,7 @@ async function submitExam(auto){
     if(ans===undefined){ unanswered++; status='skip'; }
     else if(ans===q.correctIndex){ correct++; status='correct'; }
     else { wrong++; status='wrong'; }
-    return {stem:q.stem, options:q.options, correctIndex:q.correctIndex, userAnswer:ans, status, explanation:q.explanation, chapterId:q.chapterId, templateId:q.templateId};
+    return {stem:q.stem, options:q.options, correctIndex:q.correctIndex, userAnswer:ans, status, explanation:q.explanation, chapterId:q.chapterId};
   });
   const score = Math.round((correct - wrong*0.25)*100)/100;
   const total = currentExam.questions.length;
@@ -1510,7 +1420,7 @@ function viewReview(id){
         else if(oi===b.userAnswer) cls='is-wrong';
         return `<div class="review-opt ${cls}">${renderMath(o)} ${oi===b.correctIndex?' ✓':(oi===b.userAnswer?' ✕':'')}</div>`;
       }).join('')}
-      ${b.explanation?`<div class="hint" style="margin-top:8px;">ব্যাখ্যা: ${renderMath(b.explanation)}</div>`:''}
+      ${b.explanation?`<div class="explain-text"><b>ব্যাখ্যা:</b> ${renderMath(b.explanation)}</div>`:''}
     </div>`).join('')}
   <button class="btn" onclick="nav('performance')">পারফরম্যান্সে ফিরুন</button>`;
 }
@@ -1576,24 +1486,22 @@ function viewPerformance(){
 }
 window.practiceWeak = function(cids){ beginExam(cids); };
 
-/* ============================= KEYBOARD SHORTCUTS ============================= */
+/* ============================= KEYBOARD & MOUSE SHORTCUTS ============================= */
 document.addEventListener('keydown', (e)=>{
   const modalOpen = document.getElementById('modal-overlay').classList.contains('show');
   const active = document.activeElement;
   const inTextarea = active && active.tagName === 'TEXTAREA';
   const inInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
 
-  // Esc: close modal, or go back to dashboard
   if(e.key === 'Escape'){
     if(modalOpen){ closeModal(); e.preventDefault(); return; }
-    if(location.hash === '#/exam'){ return; } // avoid accidental exit from timed exam
+    if(location.hash === '#/exam'){ return; }
     if(location.hash !== '#/dashboard' && location.hash !== '' && location.hash !== '#/'){
       nav('dashboard'); e.preventDefault();
     }
     return;
   }
 
-  // Enter inside the ingestion textarea sends the AI request (Shift+Enter = newline)
   if(e.key === 'Enter' && active && active.id === 'ai-raw-text' && !e.shiftKey){
     e.preventDefault();
     const btn = document.getElementById('ai-parse-btn');
@@ -1601,15 +1509,13 @@ document.addEventListener('keydown', (e)=>{
     return;
   }
 
-  // Enter inside any other modal field (not a textarea) triggers the primary action
   if(e.key === 'Enter' && modalOpen && !inTextarea){
     const primaryBtn = document.querySelector('#modal-body .btn-primary, #modal-body .btn-gold');
     if(primaryBtn){ e.preventDefault(); primaryBtn.click(); }
     return;
   }
 
-  // Exam view shortcuts
-  if(location.hash === '#/exam' && currentExam && !inInput){
+  if(location.hash === '#/exam' && currentExam && !inInput && !modalOpen){
     const idx = currentExam._focusIdx || 0;
     const q = currentExam.questions[idx];
     if(['1','2','3','4','5','6'].includes(e.key) && q){
@@ -1617,13 +1523,20 @@ document.addEventListener('keydown', (e)=>{
       if(optIdx < q.options.length){ e.preventDefault(); selectAnswer(idx, optIdx); }
       return;
     }
-    if(e.key === 'ArrowRight' || e.key === 'Enter'){
+    if(e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ' || e.code === 'Space'){
       e.preventDefault();
       if(idx < currentExam.questions.length-1) examGo(idx+1); else confirmSubmitExam();
       return;
     }
     if(e.key === 'ArrowLeft'){ e.preventDefault(); examGo(idx-1); return; }
   }
+});
+document.addEventListener('dblclick', (e)=>{
+  if(location.hash !== '#/exam' || !currentExam) return;
+  const wrap = document.getElementById('q-wrap');
+  if(!wrap || !wrap.contains(e.target)) return;
+  const idx = currentExam._focusIdx || 0;
+  if(idx < currentExam.questions.length-1) examGo(idx+1); else confirmSubmitExam();
 });
 
 /* ============================= ANTI-CHEAT (light, exam view only) ============================= */
