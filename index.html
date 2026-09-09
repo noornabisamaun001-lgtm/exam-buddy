@@ -179,7 +179,7 @@ body.exam-mode main{padding:0;}
 .preset .t{font-size:.76rem; color:var(--ink-soft);}
 .select-check{width:19px; height:19px; accent-color:var(--brass); flex-shrink:0;}
 
-/* Exam runner — one long scrollable page, sticky header only */
+/* Exam runner — one long scrollable page, sticky header + sticky submit bar */
 .exam-header-fixed{
   position:sticky; top:0; z-index:50;
   width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);
@@ -192,7 +192,7 @@ body.exam-mode main{padding:0;}
 .timer.low{color:var(--clay); border-color:var(--clay); background:#FBEAE5;}
 .progress-bar{height:4px; background:var(--line);}
 .progress-fill{height:100%; background:var(--brass); transition:width .3s ease;}
-.q-wrap{max-width:680px; margin:0 auto; padding:22px 20px calc(60px + env(safe-area-inset-bottom));}
+.q-wrap{max-width:680px; margin:0 auto; padding:22px 20px calc(96px + env(safe-area-inset-bottom));}
 .q-block{margin-bottom:30px; padding-bottom:26px; border-bottom:1px solid var(--line);}
 .q-num{color:var(--ink-soft); font-size:.85rem; margin-bottom:10px;}
 .q-stem{font-size:1.08rem; line-height:1.7; margin-bottom:22px;}
@@ -206,8 +206,17 @@ body.exam-mode main{padding:0;}
 .radio-dot .fill{width:10px; height:10px; border-radius:50%; background:var(--ink); display:none;}
 .opt.selected .radio-dot .fill{display:block;}
 .opt-text{font-size:.96rem;}
-.loading-more{display:flex; align-items:center; gap:10px; color:var(--ink-soft); font-size:.88rem; padding:16px 4px 26px;}
+.loading-more{display:flex; align-items:center; gap:10px; color:var(--ink-soft); font-size:.88rem; padding:16px 4px 6px;}
 .spinner-sm{width:18px; height:18px; border:3px solid rgba(27,36,48,.12); border-top-color:var(--brass); border-radius:50%; animation:spin .8s linear infinite; flex-shrink:0;}
+.exam-submit-bar{
+  position:fixed; bottom:0; left:0; right:0; z-index:45;
+  background:var(--paper); border-top:1px solid var(--line);
+  padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+}
+.exam-submit-bar .btn{max-width:680px; margin:0 auto; display:block;}
+#batch-loading{position:fixed; inset:0; background:var(--parchment); z-index:400; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; text-align:center; padding:24px;}
+#batch-loading .spinner-lg{width:42px; height:42px; border:4px solid rgba(27,36,48,.12); border-top-color:var(--brass); border-radius:50%; animation:spin .8s linear infinite;}
+#batch-loading-text{font-family:'Source Serif 4',serif; font-size:1.05rem; color:var(--ink); max-width:320px;}
 
 /* Result */
 .score-hero{text-align:center; padding:30px 0 10px;}
@@ -419,6 +428,21 @@ function openConfirmModal({title, message, confirmText, cancelText, tone, onConf
   document.getElementById('confirm-modal-yes').onclick = ()=>{ closeModal(); onConfirm(); };
 }
 
+/* ============================= BLOCKING BATCH-LOADING SCREEN (exam start only) ============================= */
+function showBatchLoading(msg){
+  let el = document.getElementById('batch-loading');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'batch-loading';
+    el.innerHTML = `<div class="spinner-lg"></div><div id="batch-loading-text"></div>`;
+    document.body.appendChild(el);
+  }
+  document.getElementById('batch-loading-text').textContent = msg;
+  el.style.display = 'flex';
+}
+function updateBatchLoading(msg){ const t=document.getElementById('batch-loading-text'); if(t) t.textContent = msg; }
+function hideBatchLoading(){ const el=document.getElementById('batch-loading'); if(el) el.remove(); }
+
 /* ============================= ROUTER ============================= */
 function nav(path){ location.hash = '/'+path; }
 window.addEventListener('hashchange', render);
@@ -496,16 +520,17 @@ function enterApp(){
   render();
 }
 
-/* ============================= GEMINI: DYNAMIC MODEL-PROOF API LAYER =============================
-   "auto" discovers the best live model and caches it. EVERY error except a genuinely bad/restricted
-   key (401/403) silently walks the fallback chain — overload, quota, 5xx, retired models, even an
-   unrecognized/JSON-mime incompatibility on some models — nothing surfaces to the user mid-flow.
+/* ============================= GEMINI: FULLY DYNAMIC MODEL LAYER =============================
+   No version numbers are hardcoded anywhere. "auto" mode asks Google's own ListModels endpoint
+   which models the key can use RIGHT NOW, scores them generically (prefers flash-class, higher
+   version numbers — works the same whether the current generation is 2.x, 3.x, or whatever comes
+   next), and caches the pick for 24h. If a model turns out to be retired/unavailable, we silently
+   re-run discovery to find whatever replaced it. Only two Google-maintained "evergreen" alias
+   names (gemini-flash-latest / gemini-pro-latest — NOT version-locked, Google itself keeps these
+   pointed at its current best models forever) are used as an absolute last-resort safety net.
 ================================================================================================= */
-const FALLBACK_MODEL_CHAIN = [
-  'gemini-2.5-flash','gemini-flash-latest','gemini-2.0-flash','gemini-2.0-flash-001',
-  'gemini-2.5-flash-lite','gemini-2.5-pro','gemini-1.5-flash-latest','gemini-1.5-flash',
-  'gemini-1.5-flash-8b','gemini-1.5-pro-latest'
-];
+const EVERGREEN_ALIASES = ['gemini-flash-latest', 'gemini-pro-latest'];
+
 function scoreModelName(name){
   let s = 0;
   if(/flash/i.test(name)) s += 50;
@@ -514,7 +539,7 @@ function scoreModelName(name){
   if(/pro/i.test(name)) s += 15;
   const verMatch = name.match(/(\d+)\.(\d+)/);
   if(verMatch) s += (parseFloat(verMatch[1]+'.'+verMatch[2]) * 10);
-  if(/vision|embedding|aqa|gemma|image|tts|native-audio/i.test(name)) s -= 1000;
+  if(/vision|embedding|aqa|gemma|image|tts|native-audio|nano-banana/i.test(name)) s -= 1000;
   return s;
 }
 function isAuthError(e){
@@ -529,6 +554,12 @@ function isTransientError(e){
   const msg = (e.message||'').toLowerCase();
   return /overloaded|unavailable|resource_exhausted|rate limit|timeout|deadline|internal error|try again|server error/.test(msg);
 }
+function isModelMissingError(e){
+  if(!e) return false;
+  if(e.status===404) return true;
+  const msg = (e.message||'').toLowerCase();
+  return /not found|deprecated|retired|discontinued|decommissioned|no longer (available|supported)|is not supported/.test(msg);
+}
 async function discoverBestModel(apiKey){
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
   if(!res.ok) throw new Error('মডেল তালিকা আনা যায়নি');
@@ -542,8 +573,6 @@ async function discoverBestModel(apiKey){
   return models[0];
 }
 async function getActiveModel(apiKey, forceRefresh){
-  const userModel = ((await sGet('geminiModel'))||'').trim();
-  if(userModel && userModel.toLowerCase() !== 'auto') return userModel;
   const cache = await sGet('modelCache');
   const now = Date.now();
   if(!forceRefresh && cache && cache.model && (now - cache.at) < 24*3600*1000) return cache.model;
@@ -552,7 +581,7 @@ async function getActiveModel(apiKey, forceRefresh){
     await sSet('modelCache', {model:best, at:now});
     return best;
   }catch(e){
-    return (cache && cache.model) || FALLBACK_MODEL_CHAIN[0];
+    return (cache && cache.model) || EVERGREEN_ALIASES[0];
   }
 }
 function extractJsonBlock(text){
@@ -589,30 +618,45 @@ async function callGeminiAPI({text, imageBase64, imageMime}){
       err.status = res.status;
       throw err;
     }
-    const outText = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
+    // Newer models may emit "thinking" parts alongside the real answer — drop those, keep only the final text.
+    const rawParts = data?.candidates?.[0]?.content?.parts || [];
+    const outText = rawParts.filter(p=>!p.thought).map(p=>p.text||'').join('');
     if(!outText) throw new Error('EMPTY_RESPONSE');
     const parsed = safeJsonParse(outText);
     if(!parsed) throw new Error('PARSE_FAILED');
     return parsed;
   }
 
-  const primaryModel = await getActiveModel(apiKey, false);
-  const candidates = [primaryModel, ...FALLBACK_MODEL_CHAIN.filter(m=>m!==primaryModel)];
-  let lastErr = null;
+  const userModel = ((await sGet('geminiModel'))||'').trim();
+  const manualOverride = userModel && userModel.toLowerCase() !== 'auto';
+  const firstGuess = manualOverride ? userModel : await getActiveModel(apiKey, false);
 
-  for(const m of candidates){
+  const tried = new Set();
+  const queue = [firstGuess];
+  let lastErr = null;
+  let didRediscover = false;
+
+  while(queue.length){
+    const m = queue.shift();
+    if(tried.has(m)) continue;
+    tried.add(m);
+    let success = null, err = null;
     for(let retry=0; retry<2; retry++){
-      try{
-        const result = await attempt(m);
-        if(m !== primaryModel){ await sSet('modelCache', {model:m, at:Date.now()}); }
-        return result;
-      }catch(e){
-        lastErr = e;
+      try{ success = await attempt(m); break; }
+      catch(e){
+        err = e;
         if(isAuthError(e)) throw e; // a bad/restricted key can't be fixed by switching models
         if(isTransientError(e) && retry===0){ await sleep(300+Math.random()*300); continue; }
-        break; // anything else (parse fail, missing model, unsupported feature, unknown error) -> next model, silently
+        break;
       }
     }
+    if(success){ await sSet('modelCache', {model:m, at:Date.now()}); return success; }
+    lastErr = err;
+    if(!didRediscover && isModelMissingError(err) && !manualOverride){
+      didRediscover = true;
+      try{ const fresh = await getActiveModel(apiKey, true); if(!tried.has(fresh)) queue.push(fresh); }catch(e){}
+    }
+    EVERGREEN_ALIASES.forEach(a=>{ if(!tried.has(a) && !queue.includes(a)) queue.push(a); });
   }
   throw lastErr || new Error('এই মুহূর্তে কোনো Gemini মডেল সাড়া দিচ্ছে না, একটু পর আবার চেষ্টা করো');
 }
@@ -629,8 +673,8 @@ async function openSettingsModal(){
     <div class="field"><label>API Key</label><input id="set-api-key" type="password" value="${esc(key)}" placeholder="AIza..."></div>
     <div class="field"><label>মডেল</label>
       <input id="set-model" type="text" value="${esc(model)}" placeholder="auto">
-      <div class="hint">"auto" রাখলে অ্যাপ নিজে থেকেই সবচেয়ে ভালো সচল মডেল বেছে নেবে, কোনো মডেল ব্যস্ত/বন্ধ থাকলে নিঃশব্দে অন্যটিতে সরে যাবে।</div>
-      <div class="hint" style="margin-top:8px;">শেষ সনাক্ত হওয়া সক্রিয় মডেল: <b>${cache && cache.model ? esc(cache.model) : 'এখনো সনাক্ত হয়নি'}</b> · <button type="button" class="link-btn" onclick="redetectModel()">পুনরায় সনাক্ত করো</button></div>
+      <div class="hint">"auto" রাখলে অ্যাপ প্রতিবার key দিয়ে জিজ্ঞেস করে দেখে নেয় এই মুহূর্তে কোন Gemini মডেল সচল আছে, এবং সেটাই ব্যবহার করে — কোনো নির্দিষ্ট মডেলের নাম কোডে বসানো নেই, তাই Google মডেল পাল্টালেও এখানে কিছু বদলাতে হবে না।</div>
+      <div class="hint" style="margin-top:8px;">শেষ ব্যবহৃত মডেল: <b>${cache && cache.model ? esc(cache.model) : 'এখনো সনাক্ত হয়নি'}</b> · <button type="button" class="link-btn" onclick="redetectModel()">পুনরায় সনাক্ত করো</button></div>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="saveSettings()">সংরক্ষণ করুন</button>
@@ -811,24 +855,28 @@ async function deleteQuestion(chapterId, id){
   document.getElementById('view').innerHTML = viewQuestionList(chapterId);
 }
 
-/* ============================= AI INGESTION (paginated, high-quality) =============================
+/* ============================= AI INGESTION (paginated, deduped, command-priority) =============================
    One input box for everything. To keep per-call quality high, the model is asked for at most 8
-   fully-detailed items per response; if more remain it says so and we resend the SAME raw text/image
-   asking it to continue — so images/voice-text are never locally chopped, only the model paginates.
+   fully-detailed items per response. We do NOT fully trust its own "hasMore" flag to decide when to
+   stop — we keep asking for more (resending the same raw text/image) until a round genuinely adds
+   ZERO new questions. Every candidate is checked against a running signature set (this session's
+   additions + everything already saved in this chapter) before insertion, so duplicates — whether
+   from the source text itself or from the model repeating itself — never get saved twice.
 ========================================================================================= */
 let currentIngestChapterId = null;
 let quickAddCount = 0;
 let attachedImage = null;
+let ingestSeenSigs = new Set();
 
 function buildIngestPrompt(rawText, hasImage, previousStems, continueFrom){
   const continuationBlock = (previousStems && previousStems.length)
     ? `\n\nতুমি এই সেশনে ইতিমধ্যে নিচের প্রশ্নগুলো বের করে ফেলেছ — এগুলো আর দিও না, পুনরাবৃত্তি করবে না:\n${previousStems.map((s,i)=>(i+1)+'. '+s).join('\n')}\n${continueFrom?`এরপর "${continueFrom}" থেকে ধারাবাহিকভাবে বাকিগুলো বের করা চালিয়ে যাও।`:'বাকি প্রশ্নগুলো বের করা চালিয়ে যাও।'}`
     : '';
-  return `তুমি একজন বাংলাদেশের ভর্তি পরীক্ষা প্রস্তুতির অভিজ্ঞ শিক্ষক ও প্রশ্ন-বিশ্লেষক AI। ব্যবহারকারী নিচে টেক্সট এবং/অথবা একটা ছবি দেবে — একটামাত্র প্রশ্ন, শত শত লাইনের তালিকা, ভয়েস থেকে লেখা কাঁচা টেক্সট, বা বইয়ের/নোটের পাতার ছবি হতে পারে। প্রতিটা লাইন/অংশ/ছবির প্রতিটা কোণা মনোযোগ দিয়ে স্ক্যান করো, একটাও প্রশ্ন যেন বাদ না পড়ে।
+  return `তুমি একজন বাংলাদেশের ভর্তি পরীক্ষা প্রস্তুতির অভিজ্ঞ শিক্ষক ও প্রশ্ন-বিশ্লেষক AI। ব্যবহারকারী নিচে টেক্সট এবং/অথবা একটা ছবি দেবে — একটামাত্র প্রশ্ন, শত শত লাইনের তালিকা, ভয়েস থেকে লেখা কাঁচা টেক্সট, বা বইয়ের/নোটের পাতার ছবি হতে পারে।
 
-ব্যবহারকারীর কোনো স্পষ্ট নির্দেশনা থাকলে (কতগুলো প্রশ্ন চাই, কোন অংশ থেকে) অনুসরণ করো। না থাকলে যত প্রকৃত/গুরুত্বপূর্ণ প্রশ্ন পাওয়া যায় সবগুলোর জন্য আইটেম বানাও (কাঁচা নোট হলে নিজে থেকে ভালো মানের MCQ তৈরি করো)।
+গুরুত্বপূর্ণ অগ্রাধিকার নিয়ম: ব্যবহারকারীর টেক্সটে যদি কোনো স্পষ্ট নির্দেশনা/কমান্ড থাকে (যেমন "শুধু ১, ৩ ও ৪ নম্বর প্রশ্ন নাও", "এই অংশ থেকে ২০টা বানাও", "শুধু দাগানো প্রশ্নগুলো নাও"), সেটাই তোমার নিজের অনুমানের চেয়ে সবসময় বেশি গুরুত্ব পাবে — ঠিক ততটুকুই করবে, তার বেশি বা কম নয়। কাজ শেষ করার আগে নিজে একবার মিলিয়ে দেখো তুমি ঠিক ব্যবহারকারীর বলা প্রশ্নগুলোই দিয়েছ কিনা। কোনো স্পষ্ট নির্দেশনা না থাকলে, প্রতিটা লাইন/অংশ/ছবির প্রতিটা কোণা মনোযোগ দিয়ে স্ক্যান করে যত প্রকৃত/গুরুত্বপূর্ণ প্রশ্ন পাওয়া যায় সবগুলোর জন্য আইটেম বানাও (কাঁচা নোট হলে নিজে থেকে ভালো মানের MCQ তৈরি করো)। ইনপুটে যদি একই প্রশ্ন একাধিকবার (হুবহু বা প্রায় হুবহু) থাকে, সেটাকে একবারই ধরবে।
 
-মানের জন্য অত্যন্ত গুরুত্বপূর্ণ: একবারে সর্বোচ্চ ৮টি প্রশ্ন বিস্তারিতভাবে বের করো, যাতে প্রতিটির বিশ্লেষণ নিখুঁত হয়। আরও বাকি থাকলে "hasMore": true দাও এবং "continueFrom"-এ পরের ধাপে কোথা থেকে চালিয়ে যেতে হবে তার সংক্ষিপ্ত ইঙ্গিত দাও (প্রশ্ন নম্বর/টপিক)। সব শেষ হলে "hasMore": false দাও।
+মানের জন্য অত্যন্ত গুরুত্বপূর্ণ: একবারে সর্বোচ্চ ৮টি প্রশ্ন বিস্তারিতভাবে বের করো, যাতে প্রতিটির বিশ্লেষণ নিখুঁত হয়। আরও বাকি থাকলে "hasMore": true দাও এবং "continueFrom"-এ পরের ধাপে কোথা থেকে চালিয়ে যেতে হবে তার সংক্ষিপ্ত ইঙ্গিত দাও।
 
 প্রতিটা প্রশ্নের জন্য প্রথমে ঠিক করো:
 (ক) "numeric" — সাংখ্যিক/গাণিতিক সমস্যা, সংখ্যা বদলালে কাঠামো ঠিক রেখে নতুন প্রশ্ন হয়।
@@ -836,12 +884,12 @@ function buildIngestPrompt(rawText, hasImage, previousStems, continueFrom){
 
 "numeric" হলে:
 {"type":"numeric","stem":"বিবৃতি, $...$ দিয়ে গণিত, পরিবর্তনযোগ্য সংখ্যার জায়গায় {a},{b}..","variables":[{"name":"a","min":X,"max":Y}],"optionExprs":["সঠিক উত্তরের সূত্র","ভুল ১","ভুল ২","ভুল ৩"],"correctIndex":0,"explanation":"ধাপে ধাপে সম্পূর্ণ নির্ভুল ব্যাখ্যা"}
-সাংখ্যিক প্রশ্নে বাড়তি সতর্কতা (ভুল হলে প্রশ্নটাই অর্থহীন হয়ে যায়): min ও max দুই প্রান্তেই বসিয়ে মনে মনে যাচাই করো — শূন্য দিয়ে ভাগ, ঋণাত্মক বর্গমূল, ভগ্নাংশ ফলাফল (পূর্ণসংখ্যা দরকার হলে), বা অবাস্তব মান যেন কোনো প্রান্তেই না আসে। যেমন {a}-{b} ব্যবহার করলে নিশ্চিত করো b সবসময় a-এর চেয়ে ছোট থাকে (নাহলে min-এ গিয়ে ফল ঋণাত্মক হয়ে যেতে পারে) — দরকার হলে {a}+{b} আকারে সবসময়-ধনাত্মক সূত্র ব্যবহার করা সহজ। সংখ্যাগুলো ভর্তি পরীক্ষার মতোই হাতে-কলমে সহজে সমাধানযোগ্য রাখবে।
+সাংখ্যিক প্রশ্নে বাড়তি সতর্কতা: min ও max দুই প্রান্তেই বসিয়ে মনে মনে যাচাই করো — শূন্য দিয়ে ভাগ, ঋণাত্মক বর্গমূল, ভগ্নাংশ ফলাফল (পূর্ণসংখ্যা দরকার হলে), বা অবাস্তব মান যেন কোনো প্রান্তেই না আসে। যেমন {a}-{b} ব্যবহার করলে নিশ্চিত করো b সবসময় a-এর চেয়ে ছোট থাকে — দরকার হলে {a}+{b} আকারে সবসময়-ধনাত্মক সূত্র ব্যবহার করা সহজ। সংখ্যাগুলো ভর্তি পরীক্ষার মতোই হাতে-কলমে সহজে সমাধানযোগ্য রাখবে।
 
 "concept" হলে:
 {"type":"concept","stem":"সম্পূর্ণ বিবৃতি","options":["...","...","...","..."],"correctIndex":0,"explanation":"ধাপে ধাপে সম্পূর্ণ নির্ভুল ব্যাখ্যা"}
 
-প্রশ্ন কোনো চিত্র/figure-নির্ভর হলে প্রয়োজনীয় মান/সম্পর্ক লেখাতেই বর্ণনা করে দাও যাতে ছবি ছাড়াও সমাধানযোগ্য থাকে। ব্যাখ্যা সবসময় সর্বোচ্চ নির্ভুল ও ধাপে ধাপে হতে হবে — এখানে ভুল হলে শিক্ষার্থী ভুল শিখবে।
+প্রশ্ন কোনো চিত্র/figure-নির্ভর হলে প্রয়োজনীয় মান/সম্পর্ক লেখাতেই বর্ণনা করে দাও যাতে ছবি ছাড়াও সমাধানযোগ্য থাকে। ব্যাখ্যা সবসময় সর্বোচ্চ নির্ভুল ও ধাপে ধাপে হতে হবে।
 
 ঠিক এই আকারে আউটপুট দাও (অন্য কিছু লিখবে না, মার্কডাউন কোড ব্লকও না):
 { "items":[ ...উপরের যেকোনো একটা স্কিমা অনুযায়ী আইটেম... ], "hasMore":true/false, "continueFrom":"..." }
@@ -854,9 +902,10 @@ ${rawText || '(সংযুক্ত ছবি বিশ্লেষণ/স্�
 
 function openIngestModal(chapterId){
   currentIngestChapterId = chapterId;
+  ingestSeenSigs = new Set(DB.questions.filter(q=>q.chapterId===chapterId).map(q=>normalizeSig(q.stem)).filter(Boolean));
   openModal(`
     <h3>নতুন প্রশ্ন যোগ করো (AI)</h3>
-    <p class="hint" style="margin-bottom:10px;">একটা প্রশ্ন লেখো, একসাথে অনেক প্রশ্ন পেস্ট করো, কাঁচা নোট দাও, অথবা বইয়ের পাতার ছবি তুলে দাও।</p>
+    <p class="hint" style="margin-bottom:10px;">একটা প্রশ্ন লেখো, একসাথে অনেক প্রশ্ন পেস্ট করো, কাঁচা নোট দাও, অথবা বইয়ের পাতার ছবি তুলে দাও — সাথে চাইলে নির্দেশনাও লেখো (যেমন "শুধু ১,৩,৪ নম্বর নাও")।</p>
     <div class="unified-input">
       <div id="attach-preview" class="attach-preview" style="display:none;">
         <img id="attach-thumb" src="">
@@ -1006,11 +1055,11 @@ async function runIngest(){
   const btn = document.getElementById('ai-parse-btn');
   btn.disabled = true; const prevLabel = btn.textContent;
 
-  let totalAdded = 0, round = 0, hasMore = true, continueFrom = '';
+  let totalAdded = 0, round = 0, continueFrom = '';
   const previousStems = [];
-  const MAX_ROUNDS = 12;
+  const MAX_ROUNDS = 15;
   try{
-    while(hasMore && round < MAX_ROUNDS){
+    while(round < MAX_ROUNDS){
       round++;
       btn.textContent = round===1 ? '⏳' : ('⏳'+round);
       const prompt = buildIngestPrompt(rawText, !!attachedImage, previousStems, continueFrom);
@@ -1022,8 +1071,11 @@ async function runIngest(){
       const items = Array.isArray(data.items) ? data.items : [];
       let addedThisRound = 0;
       items.forEach(it=>{
+        const sig = normalizeSig(it.stem);
+        if(sig && ingestSeenSigs.has(sig)) return; // duplicate — skip silently
         if(insertQuestionFromItem(currentIngestChapterId, it)){
           addedThisRound++;
+          if(sig) ingestSeenSigs.add(sig);
           previousStems.push((it.stem||'').slice(0,90));
         }
       });
@@ -1034,10 +1086,11 @@ async function runIngest(){
         const c1 = document.getElementById('quick-add-count'); if(c1) c1.textContent = quickAddCount;
       }
       continueFrom = data.continueFrom || '';
-      hasMore = !!data.hasMore && items.length>0;
-      if(items.length===0) break;
+      // We do NOT trust the model's own "hasMore" flag to stop early — keep going until a round
+      // genuinely yields nothing new (real end of content, or model is just repeating itself).
+      if(addedThisRound===0) break;
     }
-    if(totalAdded===0) toast('AI কোনো প্রশ্ন শনাক্ত করতে পারেনি, আরেকটু স্পষ্ট করে দাও');
+    if(totalAdded===0) toast('AI কোনো নতুন প্রশ্ন শনাক্ত করতে পারেনি, আরেকটু স্পষ্ট করে দাও');
     else {
       rawTextEl.value=''; autoGrowInput(rawTextEl); clearAttachment();
       toast(`✅ মোট ${totalAdded} টি প্রশ্ন যোগ হয়েছে`);
@@ -1136,7 +1189,7 @@ function buildExamGenPrompt(items){
 - একই "id"-এর একাধিক ভ্যারিয়েশন চাইলে সেগুলো একে অপরের থেকেও সম্পূর্ণ ভিন্ন হতে হবে। পুরো তালিকার কোনো দুটি আইটেমই একে অপরের সাথে হুবহু বা প্রায় হুবহু মিলবে না।
 - মূল প্রশ্ন কোনো চিত্র/figure-নির্ভর হলে প্রয়োজনীয় মান লেখাতেই বর্ণনা করে দাও।
 - গাণিতিক রাশি লিখতে $...$ ব্যবহার করো।
-- প্রতিটি ব্যাখ্যা সম্পূর্ণ নির্ভুল, বিস্তারিত ও ধাপে ধাপে হতে হবে (কমপক্ষে ২-৩ বাক্য) — ভুল হলে শিক্ষার্থী ভুল শিখবে।
+- প্রতিটি ব্যাখ্যা সম্পূর্ণ নির্ভুল, বিস্তারিত ও ধাপে ধাপে হতে হবে (কমপক্ষে ২-৩ বাক্য)।
 - ৪টি করে অপশন, ঠিক একটি সঠিক। মূল ভাষা (বাংলা/ইংরেজি) বজায় রাখো।
 
 ঠিক এই আকারে আউটপুট দাও (অন্য কিছু লিখবে না, মার্কডাউন কোড ব্লকও না):
@@ -1167,20 +1220,17 @@ function buildChunks(items){
   if(cur.length) chunks.push(cur);
   return chunks;
 }
-async function runConceptGenerationInBackground(conceptNeed, usedSig){
-  function pushBg(q, allowDup){
+function makePushInto(targetArrayOrFn, usedSig){
+  return function pushQ(q, allowDup){
     const s = normalizeSig(q.stem);
     if(s && usedSig.has(s) && !allowDup) return false;
     if(s) usedSig.add(s);
-    appendGeneratedQuestion(q);
+    if(typeof targetArrayOrFn === 'function') targetArrayOrFn(q);
+    else targetArrayOrFn.push(q);
     return true;
-  }
-  const apiKey = await sGet('geminiApiKey');
-  if(!apiKey){
-    conceptNeed.forEach(it=>{ for(let k=0;k<it.need;k++){ const q=fallbackFromConcept(it); if(!pushBg(q)) pushBg(q,true); } });
-    finishConceptLoading(); return;
-  }
-  const chunks = buildChunks(conceptNeed);
+  };
+}
+async function runConceptChunks(chunks, pushFn){
   const tasks = chunks.map(chunk => async ()=>{
     let gen = null;
     try{ const data = await callGeminiAPI({text: buildExamGenPrompt(chunk)}); gen = Array.isArray(data.generated)?data.generated:[]; }
@@ -1194,13 +1244,12 @@ async function runConceptGenerationInBackground(conceptNeed, usedSig){
         if(!g || !g.stem || !Array.isArray(g.options) || g.options.length<2) continue;
         let ci = Number.isInteger(g.correctIndex)?g.correctIndex:0; if(ci<0||ci>=g.options.length) ci=0;
         const q = { chapterId: it.chapterId, stem:g.stem, options:g.options, correctIndex:ci, explanation:g.explanation||it.explanation||'' };
-        if(pushBg(q)) used++;
+        if(pushFn(q)) used++;
       }
-      for(; used<it.need; used++){ const q=fallbackFromConcept(it); if(!pushBg(q)) pushBg(q,true); }
+      for(; used<it.need; used++){ const q=fallbackFromConcept(it); if(!pushFn(q)) pushFn(q,true); }
     });
   });
   await runWithConcurrency(tasks, 3);
-  finishConceptLoading();
 }
 function appendGeneratedQuestion(q){
   if(!currentExam) return;
@@ -1213,7 +1262,7 @@ function appendGeneratedQuestion(q){
       const indicator = document.getElementById('loading-more-indicator');
       const html = renderQuestionBlock(q, idx);
       if(indicator){ indicator.insertAdjacentHTML('beforebegin', html); }
-      else { const btn = wrap.querySelector('.btn-gold.btn-block'); if(btn) btn.insertAdjacentHTML('beforebegin', html); }
+      else { wrap.insertAdjacentHTML('beforeend', html); }
       renumberQuestions();
     }
   }
@@ -1223,6 +1272,17 @@ function renumberQuestions(){
   const total = currentExam.questions.length;
   document.querySelectorAll('#q-wrap .q-num').forEach((el,i)=>{ el.textContent = `প্রশ্ন ${i+1} / ${total}`; });
   const tc = document.getElementById('total-count'); if(tc) tc.textContent = total;
+}
+async function runConceptGenerationInBackground(conceptQueue, usedSig){
+  if(!conceptQueue.length){ finishConceptLoading(); return; }
+  const apiKey = await sGet('geminiApiKey');
+  const pushBg = makePushInto(appendGeneratedQuestion, usedSig);
+  if(!apiKey){
+    conceptQueue.forEach(it=>{ for(let k=0;k<it.need;k++){ const q=fallbackFromConcept(it); if(!pushBg(q)) pushBg(q,true); } });
+    finishConceptLoading(); return;
+  }
+  await runConceptChunks(buildChunks(conceptQueue), pushBg);
+  finishConceptLoading();
 }
 function finishConceptLoading(){
   if(currentExam){ currentExam.pendingConcept = false; saveExam(); }
@@ -1313,27 +1373,35 @@ async function beginExam(weakChapterIds){
   const { numericNeed, conceptNeed } = buildNeedItems(pool, n);
   const usedSig = new Set();
   const initialQuestions = [];
-  function pushInit(q, allowDup){
-    const s = normalizeSig(q.stem);
-    if(s && usedSig.has(s) && !allowDup) return false;
-    if(s) usedSig.add(s);
-    initialQuestions.push(q);
-    return true;
-  }
-  // Numeric questions are ready instantly, no network call at all.
+  const pushInit = makePushInto(initialQuestions, usedSig);
+
+  // Numeric: instant, no network, no waiting.
   numericNeed.forEach(it=>{
     for(let k=0;k<it.need;k++){
       let placed = false;
       for(let t=0; t<5 && !placed; t++){ const q = generateNumericInstant(it); if(pushInit(q, t===4)) placed = true; }
     }
   });
+
+  // Concept: generate the FIRST batch (~15) fully and wait for it — this guarantees every
+  // question shown at exam start (and its options) is complete and correct, no mid-exam surprises.
+  const conceptQueue = [...conceptNeed];
+  const firstBatch = [];
+  { let sum=0; while(conceptQueue.length && sum<15){ const it=conceptQueue.shift(); firstBatch.push(it); sum+=it.need; } }
+
+  if(firstBatch.length){
+    showBatchLoading('প্রশ্ন প্রস্তুত হচ্ছে...');
+    await runConceptChunks(buildChunks(firstBatch), pushInit);
+    hideBatchLoading();
+  }
+
   shuffleArr(initialQuestions);
 
-  currentExam = { id: uid(), startedAt: Date.now(), durationSec, questions: initialQuestions, answers:{}, status:'active', pendingConcept: conceptNeed.length>0 };
+  currentExam = { id: uid(), startedAt: Date.now(), durationSec, questions: initialQuestions, answers:{}, status:'active', pendingConcept: conceptQueue.length>0 };
   await saveExam();
-  nav('exam'); // jump in immediately — numeric ones are already there
+  nav('exam'); // timer starts only now, with a fully-ready first batch already in place
 
-  if(conceptNeed.length){ runConceptGenerationInBackground(conceptNeed, usedSig); }
+  if(conceptQueue.length){ runConceptGenerationInBackground(conceptQueue, usedSig); }
 }
 
 /* ============================= EXAM RUNNER (one long scrollable page) ============================= */
@@ -1359,7 +1427,9 @@ function renderExamBody(){
   <div class="q-wrap" id="q-wrap">
     ${currentExam.questions.map((q,idx)=>renderQuestionBlock(q, idx)).join('')}
     ${currentExam.pendingConcept ? `<div class="loading-more" id="loading-more-indicator"><div class="spinner-sm"></div> আরও প্রশ্ন তৈরি হচ্ছে...</div>` : ''}
-    <button class="btn btn-gold btn-block" style="margin-top:10px;" onclick="confirmSubmitExam()">পরীক্ষা জমা দিন</button>
+  </div>
+  <div class="exam-submit-bar">
+    <button class="btn btn-gold" onclick="confirmSubmitExam()">পরীক্ষা জমা দিন</button>
   </div>
   `;
 }
