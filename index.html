@@ -762,24 +762,40 @@ async function runWithConcurrency(items, limit, worker, onProgress){
 
 /* ---- Unified extraction prompt: handles ONE question, HUNDREDS of pasted lines, or raw notes.
         Always returns { "items": [...] }. When routeChapters is given, each item also carries
-        a "chapterName" so a whole subject dump can be auto-sorted chapter-wise. ---- */
+        a "chapterName" so a whole subject dump can be auto-sorted chapter-wise.
+
+        CORE-QUESTION-MASTERY CONTRACT (read this before touching the prompt):
+        This app's entire purpose is mastery of the questions the STUDENT personally selected —
+        not AI-driven content expansion. Ingestion's only job is to turn whatever the student
+        pasted into a small set of CORE QUESTIONS (one core question per question the student
+        actually selected/pasted). It must never invent extra practice questions, never expand
+        a single pasted question into several, and never treat a raw paragraph as licence to
+        produce more than a couple of MCQs directly tied to what's explicitly stated in it.
+        Controlled *variation* (changing numbers/wording/option order while preserving the exact
+        concept and solving method) happens later, at EXAM TIME — for numeric items that's
+        deterministic variable substitution, for concept items that's the explicit, user-triggered
+        "generate more variations" action. Ingestion itself must stay 1-question-in, 1-core-question-out. ---- */
 function buildExtractionPrompt({rawText, hasImage, routeChapters}){
   const routingInstruction = (routeChapters && routeChapters.length)
     ? `\nএই গ্রুপে ইতিমধ্যে বিদ্যমান অধ্যায়সমূহ: ${routeChapters.map(c=>'"'+c+'"').join(', ')}।\nপ্রতিটি আইটেমের জন্য "chapterName" ফিল্ড অবশ্যই দাও — বিষয়বস্তু উপরের কোনো অধ্যায়ের সাথে মিললে হুবহু সেই নামটাই লিখো (বানান/স্পেসিং একদম অভিন্ন রাখো), কোনোটার সাথে না মিললে বিষয়বস্তু বুঝে যুক্তিসঙ্গত নতুন অধ্যায়ের নাম দাও।`
     : (routeChapters ? `\nপ্রতিটি আইটেমে একটি ছোট "chapterName" ফিল্ড দাও যা প্রশ্নের উপ-বিষয়/টপিক বোঝায়।` : '');
-  return `তুমি একজন বাংলাদেশের ভর্তি পরীক্ষা (মেডিকেল/ভার্সিটি ভর্তি, HSC/SSC) প্রশ্ন বিশ্লেষক এবং প্রশ্ন-জেনারেটর AI।
+  return `তুমি একজন বাংলাদেশের ভর্তি পরীক্ষা (মেডিকেল/ভার্সিটি ভর্তি, HSC/SSC) প্রশ্ন বিশ্লেষক AI। তোমার কাজ হলো শিক্ষার্থীর নিজের বেছে নেওয়া প্রশ্নগুলোকে পরিষ্কার "CORE QUESTION" আকারে সংরক্ষণের জন্য প্রস্তুত করা — নতুন প্রশ্ন তৈরি করে কনটেন্ট বাড়ানো তোমার কাজ না।
 
-ব্যবহারকারী নিচে টেক্সট দেবে — এটি একটি একক MCQ হতে পারে, একাধিক প্রশ্নের বড় তালিকা (এমনকি শত শত লাইন) হতে পারে, অথবা কাঁচা নোট/অনুচ্ছেদ/বইয়ের অংশ হতে পারে যেখানে সরাসরি অপশন বা উত্তর নাও থাকতে পারে — সেক্ষেত্রে তোমাকে নিজে থেকেই গুরুত্বপূর্ণ, পরীক্ষায় আসার মতো MCQ তৈরি করে নিতে হবে।${hasImage?' একটি ছবিও সংযুক্ত থাকতে পারে — ছবিতে থাকা সব প্রশ্ন/তথ্যও বিশ্লেষণ করো।':''}
+কঠোর নিয়ম (অবশ্যই মানতে হবে):
+১) শিক্ষার্থী যতগুলো প্রশ্ন পেস্ট/সংযুক্ত করেছে, ঠিক ততগুলো আইটেমই তৈরি করবে — এক থেকে একাধিক বানিয়ে সংখ্যা বাড়াবে না। প্রতিটি শনাক্তযোগ্য প্রশ্নের জন্য একটিমাত্র "core" আইটেম দাও।
+২) যদি টেক্সট অপশনসহ সম্পূর্ণ MCQ হয়, সেই প্রশ্ন-অপশন-উত্তর হুবহু (ভাষাগতভাবে পরিষ্কার করে, কিন্তু অর্থ/ধারণা অবিকৃত রেখে) ব্যবহার করবে — নতুন করে ভিন্ন প্রশ্ন বানাবে না।
+৩) যদি টেক্সট কাঁচা নোট/অনুচ্ছেদ/বইয়ের অংশ হয় (অপশন/উত্তর ছাড়া), তাহলে শুধুমাত্র ঐ অংশে স্পষ্টভাবে উল্লিখিত মূল তথ্য/সংজ্ঞা/সূত্র থেকে সর্বোচ্চ ২-৩টি MCQ বানাও — পুরো অনুচ্ছেদকে ডজন ডজন প্রশ্নে রূপান্তর করবে না, এবং অনুচ্ছেদে নেই এমন কোনো নতুন তথ্য/তথ্যভিত্তিক প্রশ্ন যোগ করবে না।
+৪) প্রতিটি আইটেম হবে শুধু একটি CORE প্রশ্ন — একাধিক প্রি-জেনারেটেড ভ্যারিয়েশন এখানে বানাবে না। ভ্যারিয়েশন পরে পরীক্ষার সময় আলাদাভাবে তৈরি হবে।${hasImage?' একটি ছবিও সংযুক্ত থাকতে পারে — ছবিতে থাকা প্রশ্ন(সমূহ)ও একইভাবে (এক প্রশ্নে এক core আইটেম) বিশ্লেষণ করো।':''}
 
-শনাক্ত হওয়া প্রতিটি প্রশ্নের জন্য নিচের দুই ধাপ অনুসরণ করো:
+প্রতিটি core প্রশ্নের জন্য নিচের দুই ধাপ অনুসরণ করো:
 
 ধাপ ১ — প্রকারভেদ:
 (ক) "numeric" — সাংখ্যিক/গাণিতিক সমস্যা যেখানে সংখ্যা বদলালেই কাঠামো ঠিক রেখে নতুন প্রশ্ন হয় (গণিত, পদার্থবিজ্ঞান, রসায়নের সাংখ্যিক সমস্যা)।
 (খ) "concept" — ধারণাভিত্তিক/তাত্ত্বিক/সাহিত্য/জীববিজ্ঞান/ইতিহাস/গ্রামার ইত্যাদি, যেখানে সংখ্যা বদলে নতুন প্রশ্ন বানানো সম্ভব না — প্রসঙ্গ/উদাহরণ/শব্দচয়ন বদলাতে হয়।
 
-ধাপ ২ — স্কিমা অনুযায়ী আইটেম তৈরি করো:
+ধাপ ২ — স্কিমা অনুযায়ী একটিমাত্র core আইটেম তৈরি করো (একাধিক ভ্যারিয়েশন না):
 
-"numeric" হলে:
+"numeric" হলে — মূল প্রশ্নের সংখ্যাগুলোকে {a},{b},{c}.. ভেরিয়েবলে রূপান্তর করো যাতে পরীক্ষার সময় একই সমস্যাকাঠামোর মধ্যে নতুন সংখ্যা বসিয়ে অনুশীলন করা যায়:
 {
   "type": "numeric",${routingInstruction ? '\n  "chapterName": "...",' : ''}
   "stem": "মূল প্রশ্নের বিবৃতি — গাণিতিক রাশির জন্য $...$ ব্যবহার করো, পরিবর্তনযোগ্য সংখ্যার জায়গায় {a},{b},{c}... বসাও",
@@ -789,19 +805,18 @@ function buildExtractionPrompt({rawText, hasImage, routeChapters}){
   "correctIndex": 0,
   "explanation": "সমাধানের সংক্ষিপ্ত ব্যাখ্যা"
 }
-নিয়ম: variable-এর রেঞ্জ এমন যাতে কোনো র‍্যান্ডম মানেই শূন্য দিয়ে ভাগ, ঋণাত্মক বর্গমূল, বা অবাস্তব ফলাফল না হয়। optionExprs অবশ্যই বৈধ গাণিতিক সূত্র হতে হবে (নিছক স্থির সংখ্যা নয়), যাতে ভেরিয়েবল বদলালে সব অপশনও বদলায়। ৩টি ভুল অপশন যৌক্তিক সাধারণ ভুলের প্যাটার্ন অনুসরণ করবে এবং সঠিক অপশনের সমান কখনো হবে না।
+নিয়ম: variable-এর রেঞ্জ এমন যাতে কোনো র‍্যান্ডম মানেই শূন্য দিয়ে ভাগ, ঋণাত্মক বর্গমূল, বা অবাস্তব ফলাফল না হয়। optionExprs অবশ্যই বৈধ গাণিতিক সূত্র হতে হবে (নিছক স্থির সংখ্যা নয়), যাতে ভেরিয়েবল বদলালে সব অপশনও বদলায়। ৩টি ভুল অপশন যৌক্তিক সাধারণ ভুলের প্যাটার্ন অনুসরণ করবে এবং সঠিক অপশনের সমান কখনো হবে না। এই optionExprs গুলো অবশ্যই মূল প্রশ্নের একই সমাধান-পদ্ধতি/সূত্র প্রতিফলিত করবে — ভিন্ন কোনো উপায়ে সমাধান করা যায় এমন নতুন সমস্যা বানাবে না।
 
-"concept" হলে:
+"concept" হলে — শুধু একটি "variations" অ্যারে দাও যাতে একটিমাত্র (মূল) আইটেম থাকবে (আরও ভ্যারিয়েশন প্রয়োজন হলে শিক্ষার্থী পরে সরাসরি চাইলে তৈরি হবে):
 {
   "type": "concept",${routingInstruction ? '\n  "chapterName": "...",' : ''}
   "variations": [
-    {"stem":"সম্পূর্ণ নতুন প্রশ্ন ১ (একই ধারণা, ভিন্ন উদাহরণ/শব্দচয়ন)","options":["ক","খ","গ","ঘ"],"correctIndex":0,"explanation":"..."},
-    ... মূল প্রশ্ন থেকে ৪-৬টি ভিন্ন ভ্যারিয়েশন — সবগুলো একই মূল টপিক/ধারণা যাচাই করবে কিন্তু কোনো দুটি হুবহু এক হবে না।
+    {"stem":"মূল প্রশ্ন, ভাষাগতভাবে পরিষ্কার করা কিন্তু ধারণা/অর্থ অবিকৃত","options":["ক","খ","গ","ঘ"],"correctIndex":0,"explanation":"..."}
   ]
 }
 
 সবশেষে ঠিক এই আকারে আউটপুট দাও (অন্য কিছু লিখবে না, মার্কডাউন কোড ব্লকও না):
-{ "items": [ ...উপরের স্কিমা অনুযায়ী একাধিক আইটেম (টেক্সটে যতগুলো প্রশ্ন/সম্ভাব্য প্রশ্ন পাওয়া যায় সবগুলোর জন্য একটি করে)... ] }
+{ "items": [ ...উপরের নিয়ম মেনে, শিক্ষার্থীর পাঠানো টেক্সটে যতগুলো প্রশ্ন সরাসরি আছে (বা নোটের ক্ষেত্রে সর্বোচ্চ ২-৩টি) ঠিক ততগুলো আইটেম... ] }
 
 মূল প্রশ্নের ভাষা (বাংলা/ইংরেজি) বজায় রাখো। শুধুমাত্র বৈধ JSON আউটপুট দাও, অন্য কোনো টেক্সট নয়।
 
@@ -852,7 +867,7 @@ async function viewData(){
           <div><div class="group-title">${esc(g.name)}</div><div class="group-meta">${chapters.length} টি অধ্যায়</div></div>
         </div>
         <div class="row-actions">
-          <button class="icon-btn ai-btn" onclick="event.stopPropagation(); openIngestModal({mode:'bulk', groupId:'${g.id}'})" title="AI বাল্ক ইমপোর্ট (বড় নোট/অনেক প্রশ্ন একসাথে)">${iconBulk()}</button>
+          <button class="icon-btn ai-btn" onclick="event.stopPropagation(); openIngestModal({mode:'bulk', groupId:'${g.id}'})" title="AI দিয়ে বেছে নেওয়া প্রশ্ন যোগ করো (একাধিক প্রশ্ন একসাথে)">${iconBulk()}</button>
           <button class="icon-btn" onclick="event.stopPropagation(); openChapterForm('${g.id}')" title="অধ্যায় যোগ">${iconPlus()}</button>
           <button class="icon-btn" onclick="event.stopPropagation(); openGroupForm('${g.id}')" title="সম্পাদনা">${iconEdit()}</button>
           <button class="icon-btn" onclick="event.stopPropagation(); deleteGroup('${g.id}')" title="মুছুন">${iconTrash()}</button>
@@ -1049,12 +1064,12 @@ async function saveTemplateForm(chapterId, templateId){
 function openConceptEditor(chapterId, t){
   openModal(`
     <h3>ধারণাভিত্তিক প্রশ্ন — ${t.variations.length} টি ভ্যারিয়েশন</h3>
-    <p class="hint" style="margin-bottom:12px;">এই প্রশ্নগুলো এক্সাম চলাকালীন র‍্যান্ডমভাবে বেছে নেওয়া হবে, প্রতিবার অপশনের ক্রমও এলোমেলো করা হবে।</p>
+    <p class="hint" style="margin-bottom:12px;">এই প্রশ্নগুলো এক্সাম চলাকালীন র‍্যান্ডমভাবে বেছে নেওয়া হবে, প্রতিবার অপশনের ক্রমও এলোমেলো করা হবে। প্রথমটি তোমার মূল বেছে নেওয়া CORE প্রশ্ন — বাকিগুলো শুধু তখনই তৈরি হয় যখন তুমি নিচের বাটনে চেপে নিজে থেকে চাও।</p>
     <div id="concept-var-list">
       ${t.variations.map((v,i)=>conceptVarBlock(v,i)).join('')}
     </div>
     <div class="btn-row" style="margin-top:14px;">
-      <button class="btn btn-gold" onclick="generateMoreVariations('${chapterId}','${t.id}')" id="gen-more-btn">⚡ AI দিয়ে আরও ভ্যারিয়েশন তৈরি করো</button>
+      <button class="btn btn-gold" onclick="generateMoreVariations('${chapterId}','${t.id}')" id="gen-more-btn">⚡ এই একই মূল প্রশ্নের আরও কিছু কন্ট্রোল্ড ভ্যারিয়েশন তৈরি করো</button>
     </div>
     <div class="btn-row" style="margin-top:14px;">
       <button class="btn btn-primary" onclick="saveConceptEdits('${chapterId}','${t.id}')">সংরক্ষণ করুন</button>
@@ -1098,14 +1113,14 @@ async function generateMoreVariations(chapterId, templateId){
   if(btn){ btn.disabled = true; btn.textContent = 'তৈরি হচ্ছে...'; }
   try{
     const base = t.variations[0];
-    const followUp = `মূল প্রশ্ন: ${base.stem}\nঅপশনসমূহ: ${base.options.join(' | ')}\nসঠিক উত্তর: ${base.options[base.correctIndex]}\nব্যাখ্যা: ${base.explanation||''}\n\nএই একই মূল ধারণার উপর ভিত্তি করে আরও ৬-৮টি সম্পূর্ণ নতুন, ভিন্ন প্রশ্ন তৈরি করো — প্রসঙ্গ/উদাহরণ/শব্দচয়ন পরিবর্তন করে, কিন্তু মূল ধারণা অক্ষুণ্ণ রেখে। কোনোটিই আগের প্রশ্নের সাথে হুবহু মিলবে না।`;
+    const followUp = `মূল (CORE) প্রশ্ন: ${base.stem}\nঅপশনসমূহ: ${base.options.join(' | ')}\nসঠিক উত্তর: ${base.options[base.correctIndex]}\nব্যাখ্যা: ${base.explanation||''}\n\nএই ঠিক এই মূল প্রশ্নটির উপর ভিত্তি করে ৩-৪টি কন্ট্রোল্ড ভ্যারিয়েশন তৈরি করো — শুধু প্রসঙ্গ/উদাহরণ/শব্দচয়ন/অপশনের ক্রম বদলাবে। কঠোরভাবে মেনে চলো: প্রতিটি ভ্যারিয়েশন অবশ্যই একই অন্তর্নিহিত ধারণা/তথ্য, একই সমাধান-পদ্ধতি এবং একই উত্তরের যুক্তি পরীক্ষা করবে যা মূল প্রশ্নটি করে — অধ্যায়ের অন্য কোনো তথ্য/উপ-টপিক নিয়ে নতুন প্রশ্ন বানাবে না। কোনো ভ্যারিয়েশনই মূল প্রশ্ন থেকে ধারণাগতভাবে সরে যাবে না।`;
     const data = await callGeminiAPI({ text: buildExtractionPrompt({rawText: followUp, hasImage:false, routeChapters:null}) });
     const items = Array.isArray(data.items) ? data.items : (data.type ? [data] : []);
     const conceptItem = items.find(i=>i.type==='concept' && Array.isArray(i.variations) && i.variations.length);
     if(conceptItem){
       t.variations.push(...conceptItem.variations);
       await saveTemplates();
-      toast(`✅ ${conceptItem.variations.length} টি নতুন ভ্যারিয়েশন যোগ হয়েছে`);
+      toast(`✅ ${conceptItem.variations.length} টি নতুন কন্ট্রোল্ড ভ্যারিয়েশন যোগ হয়েছে`);
       openConceptEditor(chapterId, t);
     } else {
       toast('AI থেকে সঠিক ফলাফল পাওয়া যায়নি, আবার চেষ্টা করো');
@@ -1113,15 +1128,19 @@ async function generateMoreVariations(chapterId, templateId){
   }catch(e){
     toast(e.message==='NO_API_KEY' ? 'প্রথমে API Key সেট করো' : 'ত্রুটি: '+e.message);
   }finally{
-    if(btn){ btn.disabled = false; btn.textContent = '⚡ AI দিয়ে আরও ভ্যারিয়েশন তৈরি করো'; }
+    if(btn){ btn.disabled = false; btn.textContent = '⚡ এই একই মূল প্রশ্নের আরও কিছু কন্ট্রোল্ড ভ্যারিয়েশন তৈরি করো'; }
   }
 }
 
 /* ============================= UNIFIED AI INGESTION ENGINE =============================
    One entry point handles BOTH:
-     mode:'chapter' — quick-add into a single already-open chapter (single Q or a big paste of many)
-     mode:'bulk'    — paste an entire subject's worth of notes for a GROUP; AI extracts many MCQs
-                       AND assigns/creates the correct chapter for each one automatically.
+     mode:'chapter' — quick-add into a single already-open chapter (single Q or a paste of a
+                       few questions the student selected)
+     mode:'bulk'    — paste several selected questions for a GROUP at once; AI turns each into
+                       a CORE QUESTION and assigns/creates the correct chapter for each one
+                       automatically. This is still 1-selected-question-in, 1-core-question-out —
+                       "bulk" refers to handling many *pasted* questions in one go, not to
+                       expanding content beyond what the student selected.
 ========================================================================================= */
 let currentIngest = null;
 let quickAddCount = 0;
@@ -1156,11 +1175,11 @@ function openIngestModal(opts){
     </details>` : '';
 
   openModal(`
-    <h3>${isBulk ? 'বাল্ক AI ইমপোর্ট — '+esc(group?group.name:'') : 'নতুন প্রশ্ন যোগ করো'}</h3>
+    <h3>${isBulk ? 'নির্বাচিত প্রশ্ন যোগ করো — '+esc(group?group.name:'') : 'নতুন প্রশ্ন যোগ করো'}</h3>
     <p class="hint" style="margin-bottom:10px;">
       ${isBulk
-        ? 'বই/নোট থেকে বড় অংশ পেস্ট করো — একসাথে অনেক প্রশ্ন, এমনকি পুরো একটা পত্র/অধ্যায়ের নোটও দিতে পারো। AI নিজে থেকে MCQ বানিয়ে সঠিক অধ্যায়ে ভাগ করে সংরক্ষণ করবে (প্রয়োজনে নতুন অধ্যায়ও তৈরি হবে)।'
-        : 'প্রশ্নটা বইয়ে যেভাবে আছে ঠিক সেভাবে লিখো/বলো/ছবি দাও — একসাথে একাধিক প্রশ্নও পেস্ট করতে পারো, এমনকি অপশন ছাড়া কাঁচা নোটও দিতে পারো। AI নিজেই বুঝে নেবে।'}
+        ? 'তুমি যে প্রশ্নগুলো নিজে গুরুত্বপূর্ণ মনে করে বেছেছ, সেগুলো এখানে পেস্ট করো — একসাথে একাধিক প্রশ্নও দিতে পারো। প্রতিটি প্রশ্নের জন্য একটি করে CORE প্রশ্ন তৈরি হয়ে সঠিক অধ্যায়ে সংরক্ষিত হবে (প্রয়োজনে নতুন অধ্যায়ও তৈরি হবে)। AI নিজে থেকে বাড়তি প্রশ্ন তৈরি করবে না — শুধু তুমি যা পাঠাবে তাই core আকারে গুছিয়ে রাখবে।'
+        : 'প্রশ্নটা বইয়ে যেভাবে আছে ঠিক সেভাবে লিখো/বলো/ছবি দাও — একসাথে কয়েকটা প্রশ্নও পেস্ট করতে পারো। প্রতিটির জন্য একটি করে CORE প্রশ্ন তৈরি হবে, বাড়তি প্রশ্ন তৈরি হবে না।'}
     </p>
     <div class="unified-input">
       <div id="attach-preview" class="attach-preview" style="display:none;">
@@ -1170,7 +1189,7 @@ function openIngestModal(opts){
       </div>
       <div class="input-row">
         <button type="button" class="input-icon-btn" id="mic-btn" onclick="toggleVoiceInput()" title="বলে টাইপ করো">🎤</button>
-        <textarea id="ai-raw-text" rows="${isBulk?6:1}" placeholder="${isBulk?'এখানে বড় অংশ পেস্ট করো (নোট, অনেক প্রশ্ন, বা বইয়ের অংশ)...':'প্রশ্ন লেখো (একাধিকও পেস্ট করতে পারো)...'}" oninput="autoGrowInput(this)"></textarea>
+        <textarea id="ai-raw-text" rows="${isBulk?6:1}" placeholder="${isBulk?'তোমার বেছে নেওয়া প্রশ্নগুলো এখানে পেস্ট করো...':'প্রশ্ন লেখো (কয়েকটাও পেস্ট করতে পারো)...'}" oninput="autoGrowInput(this)"></textarea>
         <button type="button" class="input-icon-btn" onclick="document.getElementById('ai-image-input').click()" title="ছবি সংযুক্ত করো">📷</button>
         <button type="button" class="input-send-btn" id="ai-parse-btn" onclick="runIngest()" title="AI দিয়ে যোগ করো (Enter)">⚡</button>
       </div>
@@ -1234,7 +1253,10 @@ function insertTemplateFromItem(chapterId, item){
   }
   if(item.type==='concept'){
     if(!Array.isArray(item.variations) || item.variations.length===0) return false;
-    const variations = item.variations.filter(v=>v && v.stem && Array.isArray(v.options) && v.options.length>=2);
+    // Ingestion contract: keep only the single core variation here even if the
+    // model over-produced — extra variations only ever get added later via the
+    // explicit, user-triggered "generate more variations" action.
+    const variations = item.variations.filter(v=>v && v.stem && Array.isArray(v.options) && v.options.length>=2).slice(0,1);
     if(variations.length===0) return false;
     DB.templates.push({
       id: uid(), chapterId, type:'concept',
@@ -1246,7 +1268,7 @@ function insertTemplateFromItem(chapterId, item){
   return false;
 }
 
-const INGEST_CONCURRENCY = 3; // parallel Gemini calls for a chunked bulk paste
+const INGEST_CONCURRENCY = 3; // parallel Gemini calls for a paste of several selected questions
 
 async function runIngest(){
   const rawTextEl = document.getElementById('ai-raw-text');
@@ -1265,8 +1287,10 @@ async function runIngest(){
       routeChapters = DB.chapters.filter(c=>c.groupId===currentIngest.groupId).map(c=>c.name);
     }
 
-    // An image always goes through as a single request. Large text pastes (60+ Qs / big notes)
-    // get split into chunks and processed IN PARALLEL — this is what keeps big pastes fast.
+    // An image always goes through as a single request. A long paste of many selected
+    // questions gets split into chunks and processed IN PARALLEL — this is what keeps
+    // a big paste fast. Chunking is purely about throughput; it never changes the
+    // 1-question-in, 1-core-question-out rule enforced inside the extraction prompt.
     const chunks = attachedImage ? [rawText] : splitIntoChunks(rawText);
     let allItems = [];
 
@@ -1312,7 +1336,7 @@ async function runIngest(){
     const c1 = document.getElementById('quick-add-count'); if(c1) c1.textContent = quickAddCount;
     const c2 = document.getElementById('quick-add-chaps'); if(c2) c2.textContent = quickAddChapCount;
     rawTextEl.value=''; autoGrowInput(rawTextEl); clearAttachment();
-    toast(`✅ ${added} টি প্রশ্ন যোগ হয়েছে` + (isBulk ? ` (${chaptersTouched.size} টি অধ্যায়ে)` : ''));
+    toast(`✅ ${added} টি CORE প্রশ্ন যোগ হয়েছে` + (isBulk ? ` (${chaptersTouched.size} টি অধ্যায়ে)` : ''));
     rawTextEl.focus();
   }catch(e){
     if(e.message==='NO_API_KEY'){ toast('প্রথমে API Key সেট করো'); openSettingsModal(); }
